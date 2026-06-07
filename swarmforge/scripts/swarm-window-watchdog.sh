@@ -18,6 +18,11 @@ source "$SCRIPT_DIR/swarm-terminal-adapter.sh"
 load_terminal_backend "$TERMINAL_BACKEND"
 
 typeset -A MISSING_COUNTS=()
+# A workspace only becomes eligible for teardown/reopen once it has been seen
+# alive at least once. At startup cmux is still creating and attaching the
+# workspaces (attach settles over several seconds), so an early "missing" read
+# is a race, not a closed window — acting on it would kill a healthy swarm.
+typeset -A SEEN_ONCE=()
 
 kill_all_sessions() {
   local index window_id session title
@@ -67,12 +72,15 @@ while [[ -f "$WINDOW_STATE_FILE" ]]; do
   fi
 
   if terminal_window_exists "$cleanup_window_id"; then
+    SEEN_ONCE[$CLEANUP_OWNER_INDEX]=1
     MISSING_COUNTS[$CLEANUP_OWNER_INDEX]=0
   else
-    MISSING_COUNTS[$CLEANUP_OWNER_INDEX]=$(( ${MISSING_COUNTS[$CLEANUP_OWNER_INDEX]:-0} + 1 ))
-    if (( MISSING_COUNTS[$CLEANUP_OWNER_INDEX] >= MISSING_THRESHOLD )); then
-      kill_all_sessions
-      exit 0
+    if [[ -n "${SEEN_ONCE[$CLEANUP_OWNER_INDEX]:-}" ]]; then
+      MISSING_COUNTS[$CLEANUP_OWNER_INDEX]=$(( ${MISSING_COUNTS[$CLEANUP_OWNER_INDEX]:-0} + 1 ))
+      if (( MISSING_COUNTS[$CLEANUP_OWNER_INDEX] >= MISSING_THRESHOLD )); then
+        kill_all_sessions
+        exit 0
+      fi
     fi
     sleep 2
     continue
@@ -84,8 +92,10 @@ while [[ -f "$WINDOW_STATE_FILE" ]]; do
     tmux -S "$TMUX_SOCKET" has-session -t "$session" 2>/dev/null || continue
 
     if terminal_window_exists "$window_id"; then
+      SEEN_ONCE[$index]=1
       MISSING_COUNTS[$index]=0
     else
+      [[ -n "${SEEN_ONCE[$index]:-}" ]] || continue
       MISSING_COUNTS[$index]=$(( ${MISSING_COUNTS[$index]:-0} + 1 ))
       (( MISSING_COUNTS[$index] >= MISSING_THRESHOLD )) || continue
       new_window_id="$(terminal_open_session "$session" "$title" "$cleanup_window_id")"
