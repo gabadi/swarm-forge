@@ -295,18 +295,19 @@ write_sessions_file() {
   : > "$SESSIONS_FILE"
   local i
   for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
-    printf '%s\t%s\t%s\t%s\t%s\n' \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$i" \
       "${ROLES[$i]}" \
       "${MUX_TARGETS[$i]:-${SESSIONS[$i]}}" \
       "${DISPLAY_NAMES[$i]}" \
-      "${AGENTS[$i]}" >> "$SESSIONS_FILE"
+      "${AGENTS[$i]}" \
+      "${WORKTREE_PATHS[$i]}" >> "$SESSIONS_FILE"
   done
 }
 
 check_helper_scripts() {
   local helper
-  for helper in swarm-cleanup.sh swarm-window-watchdog.sh swarm-terminal-adapter.sh swarm-mux.sh swarmlog.sh; do
+  for helper in swarm-cleanup.sh swarm-stop-hook.sh swarm-window-watchdog.sh swarm-terminal-adapter.sh swarm-mux.sh swarmlog.sh; do
     if [[ ! -x "$SCRIPT_DIR/$helper" ]]; then
       echo -e "${RED}Error:${RESET} Required helper script not found or not executable: $SCRIPT_DIR/$helper"
       exit 1
@@ -322,11 +323,15 @@ check_helper_scripts() {
 }
 
 write_notify_script() {
+  local is_cmux=false
+  mux_is_cmux && is_cmux=true
+
   cat > "$SWARM_TOOLS_DIR/notify-agent.sh" <<'EOF'
 #!/usr/bin/env zsh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SENDER_WORKTREE="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 find_project_dir() {
   local git_common_dir
@@ -347,6 +352,7 @@ find_project_dir() {
 
 PROJECT_DIR="$(find_project_dir)"
 SESSIONS_FILE="$PROJECT_DIR/.swarmforge/sessions.tsv"
+PROMPTS_DIR="$PROJECT_DIR/.swarmforge/prompts"
 
 if [[ $# -lt 2 ]]; then
   echo "Usage: notify-agent.sh <target-role-or-index> \"message\"" >&2
@@ -359,13 +365,14 @@ if [[ ! -f "$SESSIONS_FILE" ]]; then
   exit 1
 fi
 
-resolve_session() {
+# Resolve target: returns "session<TAB>worktree_path<TAB>role"
+resolve_target() {
   local target="${1:l}"
-  local index role session display agent
+  local index role session display agent worktree_path
 
-  while IFS=$'\t' read -r index role session display agent; do
+  while IFS=$'\t' read -r index role session display agent worktree_path; do
     if [[ "$target" == "${index:l}" || "$target" == "${role:l}" ]]; then
-      echo "$session"
+      printf '%s\t%s\t%s\n' "$session" "${worktree_path:-$PROJECT_DIR}" "$role"
       return 0
     fi
   done < "$SESSIONS_FILE"
@@ -373,10 +380,14 @@ resolve_session() {
   return 1
 }
 
-TARGET_SESSION=$(resolve_session "$1") || {
+TARGET_INFO=$(resolve_target "$1") || {
   echo "Unknown target: $1" >&2
   exit 1
 }
+
+TARGET_SESSION="${TARGET_INFO%%$'\t'*}"
+TARGET_ROLE="${TARGET_INFO##*$'\t'}"
+TARGET_WORKTREE="${${TARGET_INFO#*$'\t'}%$'\t'*}"
 
 shift
 if [[ "${1:-}" == "--file" ]]; then
@@ -393,12 +404,66 @@ if [[ "${1:-}" == "--file" ]]; then
 else
   MESSAGE="$*"
 fi
+
+# Append commit hash from sender's worktree to message
+COMMIT_HASH="$(git -C "$SENDER_WORKTREE" rev-parse HEAD 2>/dev/null || echo "unknown")"
+MESSAGE="${MESSAGE}
+
+[handoff] merge-commit=${COMMIT_HASH}"
+
+# Write durable "sent" entry with full message to sender's logbook (jq required)
+SENDER_LOGBOOK="$SENDER_WORKTREE/logbook.json"
+jq -n \
+  --arg status "sent" \
+  --arg target "$TARGET_ROLE" \
+  --arg commit "$COMMIT_HASH" \
+  --arg message "$MESSAGE" \
+  --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  '{status:$status,target:$target,commit:$commit,message:$message,timestamp:$timestamp}' \
+  >> "$SENDER_LOGBOOK"
+
+# Check if target is idle (last logbook status is "executed" or no logbook exists)
+TARGET_LOGBOOK="$TARGET_WORKTREE/logbook.json"
+get_last_status() {
+  local logbook="$1"
+  [[ -f "$logbook" ]] || { echo "none"; return; }
+  jq -r '.status // "none"' "$logbook" 2>/dev/null | tail -1 || echo "none"
+}
+
+LAST_STATUS="$(get_last_status "$TARGET_LOGBOOK")"
+
+if [[ "$LAST_STATUS" == "executing" ]]; then
+  # Target is mid-job; Stop hook will deliver when it finishes
+  exit 0
+fi
+
+# Target is idle (executed, pending, or no entry); deliver now
+BUNDLE_FILE="$PROMPTS_DIR/${TARGET_ROLE}.md"
 EOF
 
-  if mux_is_cmux; then
-    mux_notify_snippet >> "$SWARM_TOOLS_DIR/notify-agent.sh"
+  # Append backend-specific delivery sequence
+  if [[ "$is_cmux" == "true" ]]; then
+    cat >> "$SWARM_TOOLS_DIR/notify-agent.sh" <<'EOF'
+
+# cmux delivery: /clear + bundle re-inject + message
+cmux send --workspace "$TARGET_SESSION" -- "/clear"
+sleep 0.15
+cmux send-key --workspace "$TARGET_SESSION" enter
+sleep 1
+if [[ -f "$BUNDLE_FILE" ]]; then
+  cmux send --workspace "$TARGET_SESSION" -- "$(< "$BUNDLE_FILE")"
+  sleep 0.15
+  cmux send-key --workspace "$TARGET_SESSION" enter
+  sleep 0.5
+fi
+cmux send --workspace "$TARGET_SESSION" -- "$MESSAGE"
+sleep 0.15
+cmux send-key --workspace "$TARGET_SESSION" enter
+EOF
   else
     cat >> "$SWARM_TOOLS_DIR/notify-agent.sh" <<'EOF'
+
+# tmux delivery: /clear + bundle re-inject + message
 TMUX_SOCKET_FILE="$PROJECT_DIR/.swarmforge/tmux-socket"
 if [[ ! -f "$TMUX_SOCKET_FILE" ]]; then
   echo "Tmux socket file not found: $TMUX_SOCKET_FILE" >&2
@@ -413,15 +478,61 @@ TMUX_PANE_BASE_INDEX="$(tmux -S "$TMUX_SOCKET" show-window-options -gqv pane-bas
 if [[ ! "$TMUX_PANE_BASE_INDEX" == <-> ]]; then
   TMUX_PANE_BASE_INDEX=0
 fi
-tmux -S "$TMUX_SOCKET" send-keys -t "${TARGET_SESSION}:${TMUX_WINDOW_BASE_INDEX}.${TMUX_PANE_BASE_INDEX}" -l -- "$MESSAGE"
+TARGET_PANE="${TARGET_SESSION}:${TMUX_WINDOW_BASE_INDEX}.${TMUX_PANE_BASE_INDEX}"
+tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_PANE" -l -- "/clear"
+tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_PANE" C-m
+sleep 1
+if [[ -f "$BUNDLE_FILE" ]]; then
+  tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_PANE" -l -- "$(< "$BUNDLE_FILE")"
+  tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_PANE" C-m
+  sleep 0.5
+fi
+tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_PANE" -l -- "$MESSAGE"
 sleep 0.15
-tmux -S "$TMUX_SOCKET" send-keys -t "${TARGET_SESSION}:${TMUX_WINDOW_BASE_INDEX}.${TMUX_PANE_BASE_INDEX}" C-m
+tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_PANE" C-m
 sleep 0.05
-tmux -S "$TMUX_SOCKET" send-keys -t "${TARGET_SESSION}:${TMUX_WINDOW_BASE_INDEX}.${TMUX_PANE_BASE_INDEX}" C-j
+tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_PANE" C-j
 EOF
   fi
 
   chmod +x "$SWARM_TOOLS_DIR/notify-agent.sh"
+}
+
+write_worktree_settings() {
+  local role="$1"
+  local worktree_path="$2"
+  local settings_dir="$worktree_path/.claude"
+  local settings_file="$settings_dir/settings.local.json"
+  local stop_hook_script="$SCRIPT_DIR/swarm-stop-hook.sh"
+  local stop_cmd
+  printf -v stop_cmd '%q %q %q' "$stop_hook_script" "$role" "$WORKING_DIR"
+
+  mkdir -p "$settings_dir"
+
+  # Build JSON with merged auto-compaction (Idea F), write-deny (Idea I), and Stop hook (Idea A).
+  # Written fresh each launch so swarmforge controls the values; role agents cannot edit this file.
+  cat > "$settings_file" <<EOF
+{
+  "autoCompactEnabled": true,
+  "env": {
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "88",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000"
+  },
+  "hooks": {
+    "Stop": [{"hooks": [{"type": "command", "command": "$stop_cmd"}]}]
+  },
+  "permissions": {
+    "deny": [
+      "Edit(swarmforge/**)",
+      "Write(swarmforge/**)",
+      "MultiEdit(swarmforge/**)",
+      "NotebookEdit(swarmforge/**)",
+      "Edit(.claude/settings.local.json)",
+      "Write(.claude/settings.local.json)"
+    ]
+  }
+}
+EOF
 }
 
 prepare_workspace() {
@@ -463,6 +574,7 @@ prepare_worktrees() {
       git -C "$WORKING_DIR" worktree add --force -B "$branch_name" "$worktree_path" HEAD >/dev/null
     fi
 
+    write_worktree_settings "${ROLES[$i]}" "$worktree_path"
     write_worktree_notify_wrapper "$worktree_path"
   done
 }
@@ -488,14 +600,67 @@ create_role_session() {
   tmux -S "$TMUX_SOCKET" set-window-option -t "$session:$title" allow-rename off
 }
 
+resolve_prompt_bundle() {
+  local role="$1"
+  local bundle_file="$2"
+  local -a pending=() seen=()
+  local current abs_path ref
+
+  pending=("swarmforge/constitution.prompt")
+  : > "$bundle_file"
+
+  while (( ${#pending[@]} > 0 )); do
+    current="${pending[1]}"
+    pending=("${pending[@]:1}")
+
+    local already=0
+    if (( ${#seen[@]} > 0 )); then
+      local s
+      for s in "${seen[@]}"; do
+        [[ "$s" == "$current" ]] && already=1 && break
+      done
+    fi
+    [[ $already -eq 1 ]] && continue
+
+    abs_path="$WORKING_DIR/$current"
+    [[ ! -f "$abs_path" ]] && continue
+
+    seen+=("$current")
+    cat "$abs_path" >> "$bundle_file"
+    printf '\n' >> "$bundle_file"
+
+    # Find referenced swarmforge prompt files (backtick, @, or bare path references)
+    while IFS= read -r ref; do
+      [[ -z "$ref" ]] && continue
+      local is_seen=0 is_pending=0
+      if (( ${#seen[@]} > 0 )); then
+        local s
+        for s in "${seen[@]}"; do [[ "$s" == "$ref" ]] && is_seen=1 && break; done
+      fi
+      if (( ${#pending[@]} > 0 )); then
+        for s in "${pending[@]}"; do [[ "$s" == "$ref" ]] && is_pending=1 && break; done
+      fi
+      [[ $is_seen -eq 0 && $is_pending -eq 0 ]] && pending+=("$ref")
+    done < <(grep -oE '(swarmforge/[^[:space:]`"'"'"'>]+\.prompt)' "$abs_path" 2>/dev/null | sort -u)
+  done
+
+  # Append role prompt last if not already included via constitution references
+  local role_prompt="swarmforge/roles/${role}.prompt"
+  local is_seen=0
+  if (( ${#seen[@]} > 0 )); then
+    local s
+    for s in "${seen[@]}"; do [[ "$s" == "$role_prompt" ]] && is_seen=1 && break; done
+  fi
+  if [[ $is_seen -eq 0 && -f "$WORKING_DIR/$role_prompt" ]]; then
+    cat "$WORKING_DIR/$role_prompt" >> "$bundle_file"
+    printf '\n' >> "$bundle_file"
+  fi
+}
+
 write_agent_instruction_file() {
   local role="$1"
   local prompt_file="$2"
-
-  cat > "$prompt_file" <<EOF
-Read swarmforge/constitution.prompt, then read every file it refers to recursively, and obey all of those instructions.
-Read swarmforge/roles/${role}.prompt, then read every file it refers to recursively, and follow all of those instructions.
-EOF
+  resolve_prompt_bundle "$role" "$prompt_file"
 }
 
 send_initial_grok_prompt() {
@@ -572,6 +737,7 @@ choose_cleanup_owner() {
 
 check_dependency "$(mux_dependency)"
 check_dependency git
+check_dependency jq
 if ! mux_is_cmux; then
   detect_tmux_base_indexes
 fi

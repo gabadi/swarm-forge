@@ -1,0 +1,69 @@
+# SwarmForge Engineering Setup — Clojure
+
+You are setting up the SwarmForge engineering environment for a Clojure project. Follow these steps exactly.
+
+## Step 1: Install Clojure analysis tools
+
+Add the following to your project's `deps.edn` under `:aliases` (or install as standalone tools):
+
+```clojure
+{:aliases
+ {:mutate  {:extra-deps {github.com/unclebob/clj-mutate {:git/tag "LATEST" :git/sha "..."}}
+            :main-opts ["-m" "clj-mutate.core"]}
+  :crap    {:extra-deps {github.com/unclebob/crap4clj {:git/tag "LATEST" :git/sha "..."}}
+            :main-opts ["-m" "crap4clj.core"]}
+  :dry     {:extra-deps {github.com/unclebob/dry4clj {:git/tag "LATEST" :git/sha "..."}}
+            :main-opts ["-m" "dry4clj.core"]}}}
+```
+
+Fetch the actual latest tags/SHAs from each repository before writing. Use `clj -Ttools install` if the project uses Clojure tools format.
+
+## Step 2: Install Babashka (if not present)
+
+Check: `bb --version`. If missing, install for the current OS:
+- macOS: `brew install babashka`
+- Linux: follow instructions at https://github.com/babashka/babashka#installation
+- Verify: `bb --version`
+
+## Step 3: Install Speclj
+
+Add to `deps.edn` under `:dev` alias:
+
+```clojure
+{:aliases {:dev {:extra-deps {speclj/speclj {:mvn/version "LATEST"}}}}}
+```
+
+Fetch the current version from Clojars before writing.
+
+Install `speclj-structure-check`: `go install github.com/unclebob/speclj-structure-check@latest`
+
+## Step 4: Install the Acceptance Pipeline Specification tools
+
+The APS tools are always built with Go:
+
+```
+go install github.com/unclebob/Acceptance-Pipeline-Specification/cmd/gherkin-parser@latest
+go install github.com/unclebob/Acceptance-Pipeline-Specification/cmd/gherkin-mutator@latest
+```
+
+Verify: `gherkin-parser --help` and `gherkin-mutator --help`.
+
+## Step 5: Write engineering.prompt
+
+Fetch the engineering rules for Clojure and write them to `swarmforge/constitution/engineering.prompt` in the target project:
+
+Fetch the content from:
+```
+https://github.com/gabadi/swarm-forge/raw/main/swarmforge/engineering-templates/engineering-clojure.prompt
+```
+
+Write the fetched content verbatim to `swarmforge/constitution/engineering.prompt`. Create the file if it does not exist; overwrite if it does.
+
+## Step 6: Verify
+
+Confirm:
+- `swarmforge/constitution/engineering.prompt` exists and is non-empty
+- `bb`, `gherkin-parser`, `gherkin-mutator`, `speclj-structure-check` are available
+- Clojure analysis aliases are configured in `deps.edn`
+
+Report success or any failures.

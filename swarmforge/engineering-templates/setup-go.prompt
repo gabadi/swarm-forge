@@ -1,0 +1,51 @@
+# SwarmForge Engineering Setup — Go
+
+You are setting up the SwarmForge engineering environment for a Go project. Follow these steps exactly.
+
+## Step 1: Install language tools
+
+Run the following commands to install the required Go analysis tools:
+
+```
+go install github.com/unclebob/mutate4go@latest
+go install github.com/unclebob/crap4go@latest
+go install github.com/unclebob/dry4go@latest
+```
+
+## Step 2: Install the Acceptance Pipeline Specification tools
+
+The APS tools are always built with Go regardless of target project language:
+
+```
+go install github.com/unclebob/Acceptance-Pipeline-Specification/cmd/gherkin-parser@latest
+go install github.com/unclebob/Acceptance-Pipeline-Specification/cmd/gherkin-mutator@latest
+```
+
+If the above paths don't exist, clone the repository and build:
+
+```
+git clone https://github.com/unclebob/Acceptance-Pipeline-Specification /tmp/aps-setup
+cd /tmp/aps-setup && go build ./... && go install ./...
+rm -rf /tmp/aps-setup
+```
+
+Verify tools are available: `gherkin-parser --help` and `gherkin-mutator --help`.
+
+## Step 3: Write engineering.prompt
+
+Fetch the engineering rules for Go and write them to `swarmforge/constitution/engineering.prompt` in the target project:
+
+Fetch the content from:
+```
+https://github.com/gabadi/swarm-forge/raw/main/swarmforge/engineering-templates/engineering-go.prompt
+```
+
+Write the fetched content verbatim to `swarmforge/constitution/engineering.prompt`. Create the file if it does not exist; overwrite if it does.
+
+## Step 4: Verify
+
+Confirm:
+- `swarmforge/constitution/engineering.prompt` exists and is non-empty
+- `mutate4go`, `crap4go`, `dry4go`, `gherkin-parser`, `gherkin-mutator` are all in `$PATH`
+
+Report success or any failures.

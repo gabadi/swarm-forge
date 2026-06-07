@@ -28,9 +28,20 @@ if [[ "${1:-}" == "--mux" ]]; then
   exit 1
 fi
 
+if [[ "${1:-}" == "--all" ]]; then
+  tmux ls 2>/dev/null | grep '^swarmforge-' | cut -d: -f1 | xargs -I{} tmux kill-session -t {} 2>/dev/null || true
+  if command -v cmux &>/dev/null; then
+    cmux workspace-group list --json 2>/dev/null \
+      | jq -r '.groups[] | select(.name | startswith("SwarmForge")) | .name' 2>/dev/null \
+      | while IFS= read -r g; do cmux workspace-group delete "$g" >/dev/null 2>&1 || true; done
+  fi
+  exit 0
+fi
+
 if [[ $# -lt 2 ]]; then
   echo "Usage: swarm-cleanup.sh <tmux-socket> <window-ids-file> [session ...]" >&2
   echo "       swarm-cleanup.sh --mux cmux --group <group> [workspace ...]" >&2
+  echo "       swarm-cleanup.sh --all" >&2
   exit 1
 fi
 

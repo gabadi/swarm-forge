@@ -1,0 +1,75 @@
+# SwarmForge Engineering Setup — Java
+
+You are setting up the SwarmForge engineering environment for a Java project. Follow these steps exactly.
+
+## Step 1: Install Java analysis tools
+
+Add the following Maven plugins to `pom.xml` under `<build><plugins>`:
+
+For mutation testing (`mutate4java`):
+```xml
+<plugin>
+  <groupId>github.com.unclebob</groupId>
+  <artifactId>mutate4java</artifactId>
+  <version>LATEST</version>
+</plugin>
+```
+
+For CRAP analysis (`crap4java`):
+```xml
+<plugin>
+  <groupId>github.com.unclebob</groupId>
+  <artifactId>crap4java</artifactId>
+  <version>LATEST</version>
+</plugin>
+```
+
+For DRY analysis (`dry4java`):
+```xml
+<plugin>
+  <groupId>github.com.unclebob</groupId>
+  <artifactId>dry4java</artifactId>
+  <version>LATEST</version>
+</plugin>
+```
+
+Fetch the actual latest versions from Maven Central or the repository before writing. If these are not on Maven Central, clone each repository and run `mvn install` locally.
+
+## Step 2: Build a dedicated test runner
+
+Do NOT use `mvn test` directly. Instead, build a dedicated test runner script (e.g., `run-tests.sh`) that:
+1. Compiles the project
+2. Runs the test suite via the project's test framework (JUnit, TestNG, etc.)
+3. Reports pass/fail and any failures
+
+## Step 3: Install the Acceptance Pipeline Specification tools
+
+The APS tools are always built with Go:
+
+```
+go install github.com/unclebob/Acceptance-Pipeline-Specification/cmd/gherkin-parser@latest
+go install github.com/unclebob/Acceptance-Pipeline-Specification/cmd/gherkin-mutator@latest
+```
+
+Verify: `gherkin-parser --help` and `gherkin-mutator --help`.
+
+## Step 4: Write engineering.prompt
+
+Fetch the engineering rules for Java and write them to `swarmforge/constitution/engineering.prompt` in the target project:
+
+Fetch the content from:
+```
+https://github.com/gabadi/swarm-forge/raw/main/swarmforge/engineering-templates/engineering-java.prompt
+```
+
+Write the fetched content verbatim to `swarmforge/constitution/engineering.prompt`. Create the file if it does not exist; overwrite if it does.
+
+## Step 5: Verify
+
+Confirm:
+- `swarmforge/constitution/engineering.prompt` exists and is non-empty
+- `gherkin-parser` and `gherkin-mutator` are in `$PATH`
+- Maven plugins are configured in `pom.xml`
+- A dedicated test runner script exists and runs successfully
+
+Report success or any failures.
