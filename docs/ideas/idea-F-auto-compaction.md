@@ -28,7 +28,8 @@ Merge (not overwrite) — idempotent. If the file already exists (from Idea I's 
 - `88` — trips compaction at 88% of the effective window, leaving headroom before hard overflow
 - `200000` — pins the effective window to 200K tokens regardless of model size
 
-**Files changed:** `swarmforge/scripts/swarmforge.sh` — new merge step in `write_worktree_permissions` or equivalent.
+**Files changed:**
+- `main`: `swarmforge/scripts/swarmforge.sh` — new merge step in `write_worktree_permissions` or equivalent
 
 ## Tradeoffs
 

@@ -28,7 +28,8 @@ At launch, `swarmforge.sh` resolves the full prompt bundle for each role and wri
 
 No XML envelope — flat concatenation. The resolved bundle is cached at `.swarmforge/prompts/<role>.md` so Idea A's re-injection reads the same file without re-resolving.
 
-Files changed: `swarmforge/scripts/swarmforge.sh` — new `resolve_prompt_bundle` and `write_agent_instruction_file` functions.
+Files changed:
+- `main`: `swarmforge/scripts/swarmforge.sh` — new `resolve_prompt_bundle` and `write_agent_instruction_file` functions
 
 ## Tradeoffs
 

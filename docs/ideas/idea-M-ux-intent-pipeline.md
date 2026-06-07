@@ -31,9 +31,9 @@ Gherkin maps well to behavioral happy paths. It structurally cannot express visu
 
 ## Decision
 
-Three prompt extensions and one new role.
+Three prompt extensions and one new role. All changes are **six-pack only** — four-pack has no hardener, no UX Reviewer, and no QA, so the UX pipeline has no home there.
 
-### 1. Specifier — add UX Intent authoring
+### 1. Specifier — add UX Intent authoring (six-pack only)
 
 Add a step 0 before the existing phases:
 
@@ -43,7 +43,7 @@ Add a step 0 before the existing phases:
 
 **Tradeoff:** If the user provides weak or missing UX intent, the specifier produces weak UX sections. The pipeline formalizes intent; it cannot originate it.
 
-### 2. Coder — read and implement from UX Intent
+### 2. Coder — read and implement from UX Intent (six-pack only)
 
 Add one instruction:
 
@@ -53,7 +53,7 @@ Add one instruction:
 
 **Tradeoff:** Two sources of guidance that could conflict. The specifier must ensure UX Intent and Gherkin are consistent. If they conflict, the coder stops and reports.
 
-### 3. Hardener — add rendering property tests
+### 3. Hardener — add rendering property tests (six-pack only)
 
 Add one instruction:
 
@@ -63,10 +63,12 @@ Add one instruction:
 
 **Tradeoff:** Property tests that are too strict about structure will break on legitimate future layout changes. Invariants should be structural (board always has borders) not positional (score appears at column 47).
 
-### 4. UX Reviewer — new role between hardener and QA
+### 4. UX Reviewer — new role between hardener and QA (six-pack only)
+
+The UX Reviewer is added to six-pack only. Four-pack has no hardener or QA, so no placement exists. The full six-pack pipeline with integrator (Idea C):
 
 ```
-specifier → coder → refactorer → architect → hardener → UX Reviewer → QA
+specifier → coder → cleaner → architect → hardener → UX Reviewer → QA → integrator → (notify specifier)
 ```
 
 **Mandate:** Run the binary. Read the UX Intent section. Compare live experience against each statement. Report mismatches as defects with specific reference to the UX Intent statement violated. No code changes — judgment and reporting only.
@@ -74,6 +76,13 @@ specifier → coder → refactorer → architect → hardener → UX Reviewer �
 **Rationale:** Every other role executes against written criteria. The UX reviewer makes a judgment call: does this feel right? That requires an agent that runs the software and experiences it. This is distinct from QA (which verifies implementation matches spec) — the UX reviewer checks that what was written was the right thing.
 
 **Tradeoff:** Adds a pipeline stage. For features with no UX component, the UX reviewer passes through immediately (existing "no changes → don't hand off" rule). Quality of UX review is directly coupled to quality of UX Intent authoring.
+
+**Files changed (six-pack only):**
+- `six-pack`: `swarmforge/swarmforge.conf` — add UX Reviewer window between hardener and QA
+- `six-pack`: `swarmforge/roles/ux-reviewer.prompt` (new)
+- `six-pack`: `swarmforge/roles/specifier.prompt` — add UX Intent authoring step
+- `six-pack`: `swarmforge/roles/coder.prompt` — add UX Intent reading instruction
+- `six-pack`: `swarmforge/roles/hardener.prompt` — add rendering property tests instruction
 
 ## Consequences
 

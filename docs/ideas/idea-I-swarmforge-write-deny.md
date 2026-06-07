@@ -35,7 +35,8 @@ Covering `settings.local.json` itself is critical: without it, a role could edit
 
 The launcher (running in the main shell, not the role worktree) seeds the `settings.local.json` from the host shell before the deny takes effect — so the deny never blocks the setup step itself.
 
-**Files changed:** `swarmforge/scripts/swarmforge.sh` — new deny merge in `write_worktree_permissions`.
+**Files changed:**
+- `main`: `swarmforge/scripts/swarmforge.sh` — new deny merge in `write_worktree_permissions`
 
 ## Tradeoffs
 

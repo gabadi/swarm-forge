@@ -1,53 +1,45 @@
-# Idea J — Session Retro via `entire`
+# Idea J — Session Retro via `entire` + `agent-retro`
 
 **Status:** Proposed  
-**Depends on:** Idea K (entire must be enabled and agent hooks installed before any session can be tracked)
+**Depends on:** Idea K (entire must be enabled and agent hooks installed before sessions can be tracked)
 
 ## Context
 
-Role agents run in separate processes with separate session transcripts. When a session ends (agent stops, compaction, or explicit close), the session story is lost — what the role did, where it struggled, what it tried that didn't work.
+Role agents run in separate processes with separate session transcripts. Without structured close-out, session stories are lost — what the role did, where it struggled, what it tried that didn't work.
 
-`agent-retro` (used in melech) reads Claude Code's JSONL session transcripts directly and produces structured friction analysis + improvement proposals. It works for Claude Code only — it cannot read codex, copilot, or other backend session formats. Since swarmforge supports multiple backends (`codex`, `claude`, `copilot`, `grok`), a Claude-Code-specific retro tool creates an uneven experience.
+`entire` and `agent-retro` are complementary, not alternatives:
 
-`entire` is an agent-agnostic session tracking tool. It hooks into multiple agent CLIs (`claude-code`, `codex`, `copilot-cli`, `cursor`, etc.) via `entire agent add <backend>` and tracks checkpoints in a unified format. `entire dispatch --local` generates a session summary from those checkpoints without depending on agent-specific transcript formats.
+- **`entire`** — raw trace layer. Once set up via `entire agent add <backend>`, it automatically collects session checkpoints across all configured agent backends (claude-code, codex, opencode, etc.) in a unified format. No explicit call needed during sessions — collection is automatic.
+- **`agent-retro`** — per-session analysis. Runs within the agent's own turn as the close-out step. Produces friction analysis and improvement proposals from the session.
+
+The original Idea J framing (replacing `agent-retro` with `entire dispatch --local`) was wrong. `entire dispatch --local` generates an on-demand summary from `entire`'s checkpoints — it is for the operator, not for unattended roles. `agent-retro` remains the per-session retro for role agents.
 
 ## Decision
 
-At session end (Claude Code Stop hook — same mechanism as Idea A), each role runs:
+Two things happen per session:
 
-```sh
-entire dispatch --local
-```
+1. **`entire` collects automatically** — no role prompt change needed. Traces are captured by the hooks `entire agent add` installs (Idea K). Backend-agnostic.
 
-This generates a dispatch summarizing what the role did during the session. Dispatches are stored by `entire` in its local state.
+2. **`agent-retro` runs within the role turn** — as the explicit close-out step in every role's lifecycle, before going idle. This is the standard "agent-retro before idle" pattern already used in melech-mini-apps roles.
 
-For cross-session root-cause analysis, `retro-triage` (an existing skill in the operator's environment) runs periodically across all role session dispatches to identify systemic failure patterns and propose improvements.
+**Files changed:**
+- `four-pack` + `six-pack`: `swarmforge/roles/*.prompt` — `agent-retro before idle` added as final lifecycle step to each role (if not already present)
+- No Stop hook change needed — `entire` collection is automatic, `agent-retro` is within the turn
 
-**This replaces `agent-retro` for swarmforge roles.** The `agent-retro` skill's value (friction analysis + proposals) is preserved through `retro-triage`'s batch analysis, but without the per-agent JSONL dependency.
-
-**Files changed:** `swarmforge/scripts/swarmforge.sh` — the Stop hook written to each role's `.claude/settings.local.json` gains an `entire dispatch --local` call (conditioned on `entire` being available).
-
-**Condition:** If `entire` is not set up (not enabled or agent not registered), the Stop hook silently skips the dispatch. No failure.
+**Condition:** If `entire` is not set up, traces are silently absent — retro still runs via `agent-retro` but without the raw trace backing. No failure.
 
 ## Tradeoffs
 
 **What improves:**
-- Agent-agnostic — works for codex, claude, copilot, or any `entire`-supported backend
-- No custom per-agent session parsing to maintain
-- `retro-triage` cross-session analysis available for all roles
+- Raw traces are backend-agnostic and automatic — captured for every agent type configured in `swarmforge.conf`
+- Per-session retro runs reliably within the turn — not dependent on Stop hook timing
+- Operator can run `entire dispatch --local` on demand to review cross-session summaries
 
 **What requires setup:**
 - `entire enable` + `entire agent add <backend>` must run at project setup (Idea K)
-- Without setup, retros are silently skipped — no error, no retro
-
-**What `entire dispatch` does not provide vs `agent-retro`:**
-- Interactive walkthrough — `agent-retro` walks through proposals one by one for approval. `entire dispatch` produces a summary; actionability comes from `retro-triage` in a separate operator session, not from the role agent itself.
-- Per-session friction analysis depth — `agent-retro` analyzes tool result waste, token cost breakdown, and friction per session. `entire dispatch` is a higher-level summary. This is acceptable — deep per-session analysis is the operator's job via `retro-triage`, not an unattended role's job.
 
 ## Alternatives considered
 
-**`agent-retro` per role:** Works for Claude Code backend only. Breaks for codex and other backends. Rejected — swarmforge is multi-backend by design.
+**`entire dispatch --local` in Stop hook as retro replacement:** `entire dispatch` is a summary tool for operators, not a per-session friction analysis for agents. It does not produce actionable proposals within the agent turn. Rejected — `agent-retro` is the right tool for per-session close-out.
 
-**Custom per-backend session reader:** Implement JSONL reading for Claude Code, stdout parsing for codex, etc. Maintenance burden grows with each new backend. Rejected — `entire` already solves this.
-
-**No retro at all:** Session stories are lost; systemic improvement requires operator retrospection without data. Acceptable for simple projects; not acceptable for long-running swarms where improvement feedback is valuable. Rejected.
+**No retro at all:** Session stories are lost. Rejected.

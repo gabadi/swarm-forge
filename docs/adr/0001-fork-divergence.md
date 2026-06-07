@@ -30,19 +30,19 @@ Ideas under consideration. Not yet designed or implemented. Each has a detailed 
 
 | Idea | Summary | Spec | Open questions |
 |------|---------|------|----------------|
-| A | Notify harness — shell queue, `/clear` + bundle re-inject, Stop hook idle signal, commit hash in trailer | [idea-A](../ideas/idea-A-notify-harness.md) | Job-complete discriminator for Stop hook |
+| A | Notify harness — shell queue, `/clear` + bundle re-inject, Stop hook idle signal, commit hash in trailer | [idea-A](../ideas/idea-A-notify-harness.md) | None |
 | B | Prompt bundle inlining at launch — flat concat, system prompt delivery | [idea-B](../ideas/idea-B-prompt-bundle-inlining.md) | None |
-| C | Integrator role — owns PR + CI + merge | [idea-C](../ideas/idea-C-integrator-role.md) | Do target projects have CI? |
+| C | Integrator role — owns PR + CI + merge; specifier moves to own worktree | [idea-C](../ideas/idea-C-integrator-role.md) | None |
 | D | Role idle gates — no handoff = no action, remove startup install directives | [idea-D](../ideas/idea-D-idle-gates.md) | None |
 | E | Back-routing defects — route to directly-upstream role with failing step + repro | [idea-E](../ideas/idea-E-back-routing-defects.md) | None |
 | F | Auto-compaction on role worktrees — 88%/200k | [idea-F](../ideas/idea-F-auto-compaction.md) | None |
-| G | Per-technology engineering file — selected at install time | [idea-G](../ideas/idea-G-per-tech-engineering-file.md) | How does install-time selection work? |
+| G | Per-technology engineering file — selected at install time | [idea-G](../ideas/idea-G-per-tech-engineering-file.md) | None |
 | H | swarm-cleanup --all mode | [idea-H](../ideas/idea-H-cleanup-all-mode.md) | None |
 | I | swarmforge/ write deny on role worktrees | [idea-I](../ideas/idea-I-swarmforge-write-deny.md) | None |
-| J | Session retro via `entire dispatch --local` + `retro-triage` | [idea-J](../ideas/idea-J-session-retro-entire.md) | Depends on K |
-| K | Setup / preflight — `entire enable`, tool check, engineering template | [idea-K](../ideas/idea-K-setup-preflight.md) | Skill vs automatic preflight? |
-| L | Gherkin header sections — ~3 mandatory sections per feature file | [idea-L](../ideas/idea-L-gherkin-header-sections.md) | Which 3 sections? |
-| M | UX Intent in the pipeline — specifier authors UX Intent, coder reads it, UX Reviewer role | [idea-M](../ideas/idea-M-ux-intent-pipeline.md) | None |
+| J | Session retro — `entire` auto-collects traces, `agent-retro` runs per turn | [idea-J](../ideas/idea-J-session-retro-entire.md) | None |
+| K | Setup / preflight — `entire enable` + `entire agent add` per backend, automatic at first `./swarm` | [idea-K](../ideas/idea-K-setup-preflight.md) | None |
+| L | Gherkin header sections — 7 mandatory sections per feature file (rubric + format) | [idea-L](../ideas/idea-L-gherkin-header-sections.md) | None |
+| M | UX Intent in the pipeline — specifier authors UX Intent, coder reads it, UX Reviewer role (six-pack only) | [idea-M](../ideas/idea-M-ux-intent-pipeline.md) | None |
 
 **Rejected**: D12–D15 (engineering prompt tweaks — test-type separation, property-test close-out, full-mutation rule, Gherkin mutation command inline) — too much prompt drift from upstream. D24 (role prompt restructure into Standing rules + numbered Lifecycle) — same reason.
 

@@ -11,7 +11,7 @@ Each role is scoped to its quality gate. When a role discovers a defect it doesn
 - **Fix out-of-role:** Refactorer fixes a coder bug. Now the fix bypasses the mutation gate the coder would have applied, ships under-mutated, and attribution is corrupted.
 - **Push broken forward:** Refactorer hands off a known defect to the architect. The defect propagates, attribution is lost, and a downstream role eventually fails in a confusing context.
 
-The concrete QA scenario: QA finds a discrepancy between the implementation and the spec. Without back-routing, QA blocks silently or fails with no clear next action.
+The concrete QA scenario (six-pack): QA finds a discrepancy between the implementation and the spec. QA's directly-upstream role is UX Reviewer (Idea M), which routes further upstream if needed. Without back-routing, QA blocks silently or fails with no clear next action.
 
 ## Decision
 
@@ -21,7 +21,8 @@ Add a single rule to `constitution/workflow.prompt`:
 
 **"Directly-upstream" means one step back in the pipeline.** If QA finds a spec discrepancy, it routes to hardener. Hardener routes to architect if it doesn't own it. And so on until it reaches the owning role. Multi-hop chains are acceptable — in practice, most defects are local to the adjacent role, so chains are short.
 
-**Files changed:** `swarmforge/constitution/workflow.prompt` on both runnable branches — one additive rule, no upstream content removed.
+**Files changed:**
+- `four-pack` + `six-pack`: `swarmforge/constitution/workflow.prompt` — one additive back-routing rule, no upstream content removed
 
 ## Tradeoffs
 

@@ -22,7 +22,8 @@ Add an explicit idle gate to each role prompt:
 
 Remove the startup install directives. Tool installation belongs in project setup (see Idea K), not in role startup.
 
-**Files changed:** `swarmforge/roles/*.prompt` on both runnable branches (`four-pack`, `six-pack`) — one line added per role, startup directives removed.
+**Files changed:**
+- `four-pack` + `six-pack`: `swarmforge/roles/*.prompt` — idle gate added, startup install directives removed
 
 **Diff from upstream:** Small. The idle gate is additive. The startup directive removal is a drop of lines that are no-ops on mature projects. Minimal divergence.
 
