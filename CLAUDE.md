@@ -8,7 +8,9 @@ This is a permanent fork of `unclebob/swarm-forge`. Before touching scripts, con
 
 ## Installing SwarmForge into a project
 
-Use `/enabling-swarm-forge`. It reads this fork live and walks through branch selection, role configuration, install, and a pilot slice.
+1. Copy `./swarm` and `swarmforge/` from the right branch (`four-pack` or `six-pack`) into the target project
+2. Run `./swarm` — preflight runs automatically on first launch (`entire enable` + backend registration)
+3. For language setup, give your agent the raw URL: `https://github.com/gabadi/swarm-forge/raw/main/swarmforge/engineering-templates/setup-<lang>.prompt`
 
 ## Branch Model
 
@@ -33,9 +35,10 @@ swarmforge/swarmforge.conf          # role → agent → worktree mapping
 swarmforge/constitution.prompt      # entry point, delegates to constitution/ files
 swarmforge/constitution/
   project.prompt
-  engineering.prompt
+  engineering.prompt                # generated at install time (see docs/ideas/idea-G)
   workflow.prompt                   # handoff and logbook rules live here
-swarmforge/<role>.prompt            # one file per role in swarmforge.conf
+swarmforge/roles/<role>.prompt      # one file per role in swarmforge.conf
+swarmforge/templates/feature.feature  # Gherkin 7-section header template
 ```
 
 ## logbook.json
