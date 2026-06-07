@@ -69,7 +69,12 @@ terminal_open_session() {
   ws_ref="$(cmux workspace create --name "$title" --cwd "$WORKING_DIR" --command "$tmux_cmd" --focus false | awk '{print $2}')"
 
   if [[ -z "$sibling_ref" ]]; then
-    cmux workspace-group create --name "SwarmForge" --from "$ws_ref" >/dev/null
+    # Name the group after the project directory so concurrent swarms in
+    # different projects are distinguishable in the sidebar. Sibling agents
+    # join via _cmux_group_from_workspace (membership, not name), so each run
+    # always anchors its own fresh group even if the name repeats.
+    local group_name="SwarmForge · ${WORKING_DIR:t}"
+    cmux workspace-group create --name "$group_name" --from "$ws_ref" >/dev/null
   else
     group_ref="$(_cmux_group_from_workspace "$sibling_ref")"
     cmux workspace-group add --group "$group_ref" --workspace "$ws_ref" >/dev/null
