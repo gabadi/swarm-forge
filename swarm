@@ -21,4 +21,9 @@ if [[ ! -d "$SCRIPT_DIR/swarmforge/scripts" ]]; then
   cp -R "$TMP_DIR/swarmforge/scripts" "$SCRIPT_DIR/swarmforge/scripts"
 fi
 
+if [[ "${1:-}" == "stop" ]]; then
+  shift
+  exec "$SCRIPT_DIR/swarmforge/scripts/swarm-stop.sh" "$@"
+fi
+
 exec "$SCRIPT_DIR/swarmforge/scripts/swarmforge.sh" "$@"
