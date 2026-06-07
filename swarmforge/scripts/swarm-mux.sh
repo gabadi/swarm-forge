@@ -51,11 +51,23 @@ mux_dependency() {
 }
 
 # Extract the first whitespace-separated token with the given prefix (e.g.
-# "workspace:" or "group:") from stdin. cmux prints lines like "OK workspace:3";
-# this is tolerant of the leading "OK " and of any surrounding text.
+# "workspace:") from stdin. cmux prints lines like "OK workspace:3"; this is
+# tolerant of the leading "OK " and of any surrounding text.
 _mux_extract_ref() {
   local prefix="$1"
   awk -v p="$prefix" '{ for (i = 1; i <= NF; i++) if (index($i, p) == 1) { print $i; exit } }'
+}
+
+# Resolve the workspace_group ref that contains the given workspace, by
+# membership rather than by parsing `workspace-group create` output. The group
+# ref is "workspace_group:N" (NOT "group:N"), and the create command's printed
+# format is not relied upon. Lists the caller's window, where the swarm launcher
+# created the workspaces.
+_mux_group_for_workspace() {
+  local ws_ref="$1"
+  cmux workspace-group list --json 2>/dev/null \
+    | jq -r --arg ws "$ws_ref" '.groups[] | select(.member_workspace_refs[] == $ws) | .ref' 2>/dev/null \
+    | head -1
 }
 
 # Seed MUX_TARGETS with placeholders so an early write_sessions_file is harmless.
@@ -106,8 +118,14 @@ mux_create_all() {
 
     if [[ -z "$CMUX_GROUP" ]]; then
       # Name the group after the project directory so concurrent swarms in
-      # different projects are distinguishable in the sidebar.
-      CMUX_GROUP="$(cmux workspace-group create --name "SwarmForge · ${WORKING_DIR:t}" --from "$ws" 2>&1 | _mux_extract_ref 'group:')"
+      # different projects are distinguishable in the sidebar. Resolve the new
+      # group's ref by membership of this first (anchor) workspace.
+      cmux workspace-group create --name "SwarmForge · ${WORKING_DIR:t}" --from "$ws" >/dev/null 2>&1 || true
+      CMUX_GROUP="$(_mux_group_for_workspace "$ws")"
+      if [[ -z "$CMUX_GROUP" ]]; then
+        echo "Error: could not resolve cmux workspace group for ${ws}" >&2
+        exit 1
+      fi
       printf '%s\n' "$CMUX_GROUP" > "$CMUX_GROUP_FILE"
     else
       cmux workspace-group add --group "$CMUX_GROUP" --workspace "$ws" >/dev/null 2>&1 || true
