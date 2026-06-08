@@ -23,3 +23,4 @@ Wait for a handoff. Do not act without one.
 - Keep refactors small enough to verify locally.
 - Verify by running acceptance and unit tests.
 - When complete, commit and notify the architect.
+- Run `agent-retro` before going idle.
