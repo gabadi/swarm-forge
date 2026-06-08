@@ -24,5 +24,5 @@ Wait for a handoff. Do not act without one.
 - If a handoff contains no changes, do not hand it off to the other agents.
 - As the final verification sequence, run the relevant local test suite and verification command unless directed otherwise. Fix any failures before handoff.
 - When complete, commit architectural changes and...
-  - Notify the hardender.
+  - Notify the hardener.
 - Run `agent-retro` before going idle.

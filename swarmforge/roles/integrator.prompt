@@ -7,7 +7,7 @@ Wait for a handoff. Do not act without one.
 
 ## Lifecycle
 
-1. Receive handoff from the architect with the commit hash and specifier handoff name. No handoff — including cold launch — means idle.
+1. Receive handoff from QA with the commit hash and specifier handoff name. No handoff — including cold launch — means idle.
 2. Create a per-feature branch: `git checkout -b feat/<initiative> <hash>`. Name `<initiative>` after the specifier handoff name.
 3. Open the PR: `gh pr create --title "<initiative>" --body ""`. Never push `swarmforge-integrator` as the PR head.
 4. Check out back to your assigned worktree: `git checkout swarmforge-integrator`. This allows the feature branch to be deleted on merge.
