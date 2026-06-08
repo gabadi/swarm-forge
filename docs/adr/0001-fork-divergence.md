@@ -30,7 +30,7 @@ At launch, the full prompt bundle for each role is resolved via BFS from `swarmf
 
 Files changed: `swarmforge/scripts/swarmforge.sh` — added `write_worktree_permissions`; called from `prepare_worktrees`.
 
-Each non-master role worktree gets `autoCompactEnabled: true`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: "88"`, and `CLAUDE_CODE_AUTO_COMPACT_WINDOW: "200000"` merged into `.claude/settings.local.json` at swarm launch via `bun -e`. Idempotent. When rebasing, reapply this change on top of upstream `main`.
+Each non-master role worktree gets `autoCompactEnabled: true`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: "88"`, and `CLAUDE_CODE_AUTO_COMPACT_WINDOW: "200000"` merged into `.claude/settings.local.json` at swarm launch via `python3`. Idempotent. When rebasing, reapply this change on top of upstream `main`.
 
 ---
 
@@ -154,7 +154,7 @@ Design settled. No new domain vocabulary.
 
 Design settled. No new domain vocabulary.
 
-**Merge, never overwrite.** `write_worktree_permissions` reads the existing `.claude/settings.local.json` (or starts from `{}`), unions in the compaction settings, and writes back. Implemented via `bun -e` inline JavaScript — same pattern as the mini-apps reference implementation. Idempotent.
+**Merge, never overwrite.** `write_worktree_permissions` reads the existing `.claude/settings.local.json` (or starts from `{}`), unions in the compaction settings, and writes back via `python3`. Idempotent.
 
 **Values fixed.** `autoCompactEnabled: true`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: "88"`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW: "200000"`. No per-role overrides.
 

@@ -339,14 +339,17 @@ HASH="$8"
 MESSAGE_FILE="$9"
 
 # 1. Append executing entry to receiver logbook
-LOGBOOK_PATH="$LOGBOOK_PATH" bun -e '
-  const fs = require("fs"), path = require("path");
-  const p = process.env.LOGBOOK_PATH;
-  let log = [];
-  try { log = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
-  log.push({ status: "executing", timestamp: new Date().toISOString() });
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(log, null, 2));
+LOGBOOK_PATH="$LOGBOOK_PATH" python3 -c '
+import json, os
+from datetime import datetime, timezone
+p = os.environ["LOGBOOK_PATH"]
+log = []
+try:
+  with open(p) as f: log = json.load(f)
+except: pass
+log.append({"status": "executing", "timestamp": datetime.now(timezone.utc).isoformat()})
+os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+with open(p, "w") as f: json.dump(log, f, indent=2)
 '
 
 # 2. git reset --hard to handoff commit
@@ -459,16 +462,19 @@ SENDER_LOGBOOK="$SENDER_WORKTREE/logbook.json"
 FULL_MESSAGE="$(< "$msg_file")"
 
 # Append sent + executed to sender logbook
-LOGBOOK="$SENDER_LOGBOOK" TARGET_ROLE="$TARGET" MSG="$FULL_MESSAGE" HASH="$SENDER_HASH" bun -e '
-  const fs = require("fs"), path = require("path");
-  const p = process.env.LOGBOOK;
-  let log = [];
-  try { log = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
-  const now = new Date().toISOString();
-  log.push({ status: "sent", target: process.env.TARGET_ROLE, message: process.env.MSG, hash: process.env.HASH, timestamp: now });
-  log.push({ status: "executed", timestamp: now });
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(log, null, 2));
+LOGBOOK="$SENDER_LOGBOOK" TARGET_ROLE="$TARGET" MSG="$FULL_MESSAGE" HASH="$SENDER_HASH" python3 -c '
+import json, os
+from datetime import datetime, timezone
+p = os.environ["LOGBOOK"]
+log = []
+try:
+  with open(p) as f: log = json.load(f)
+except: pass
+now = datetime.now(timezone.utc).isoformat()
+log.append({"status": "sent", "target": os.environ["TARGET_ROLE"], "message": os.environ["MSG"], "hash": os.environ["HASH"], "timestamp": now})
+log.append({"status": "executed", "timestamp": now})
+os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+with open(p, "w") as f: json.dump(log, f, indent=2)
 '
 
 # Resolve receiver from sessions.tsv (cols: index role mux_target display agent worktree_path)
@@ -489,29 +495,35 @@ RECEIVER_LOGBOOK="$receiver_worktree/logbook.json"
 RECEIVER_BUNDLE="$PROMPTS_DIR/${receiver_role}.md"
 
 # Check receiver logbook for last terminal state
-receiver_state=$(LOGBOOK="$RECEIVER_LOGBOOK" bun -e '
-  const fs = require("fs");
-  let log = [];
-  try { log = JSON.parse(fs.readFileSync(process.env.LOGBOOK, "utf8")); } catch {}
-  let state = "none";
-  for (let i = log.length - 1; i >= 0; i--) {
-    const s = log[i].status;
-    if (s === "executing" || s === "executed") { state = s; break; }
-  }
-  process.stdout.write(state);
+receiver_state=$(LOGBOOK="$RECEIVER_LOGBOOK" python3 -c '
+import json, os, sys
+log = []
+try:
+  with open(os.environ["LOGBOOK"]) as f: log = json.load(f)
+except: pass
+state = "none"
+for e in reversed(log):
+  s = e.get("status", "")
+  if s in ("executing", "executed"):
+    state = s
+    break
+sys.stdout.write(state)
 ' 2>/dev/null || echo "none")
 
 if [[ "$receiver_state" != "executing" ]]; then
   exec "$DELIVER_SCRIPT" "$PROJECT_DIR" "$MUX_BACKEND" "$receiver_mux" "$receiver_display" "$receiver_worktree" "$RECEIVER_LOGBOOK" "$RECEIVER_BUNDLE" "$SENDER_HASH" "$msg_file"
 else
-  LOGBOOK="$RECEIVER_LOGBOOK" MSG="$FULL_MESSAGE" HASH="$SENDER_HASH" bun -e '
-    const fs = require("fs"), path = require("path");
-    const p = process.env.LOGBOOK;
-    let log = [];
-    try { log = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
-    log.push({ status: "pending", message: process.env.MSG, hash: process.env.HASH, timestamp: new Date().toISOString() });
-    fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(p, JSON.stringify(log, null, 2));
+  LOGBOOK="$RECEIVER_LOGBOOK" MSG="$FULL_MESSAGE" HASH="$SENDER_HASH" python3 -c '
+import json, os
+from datetime import datetime, timezone
+p = os.environ["LOGBOOK"]
+log = []
+try:
+  with open(p) as f: log = json.load(f)
+except: pass
+log.append({"status": "pending", "message": os.environ["MSG"], "hash": os.environ["HASH"], "timestamp": datetime.now(timezone.utc).isoformat()})
+os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+with open(p, "w") as f: json.dump(log, f, indent=2)
   '
   echo "Queued: receiver is currently executing. Delivery will occur at next idle."
 fi
@@ -555,33 +567,33 @@ pending_msg_file=$(mktemp)
 trap 'rm -f "$pending_msg_file"' EXIT
 
 # Query logbook: find last terminal state and first pending after last executing
-bun_out=$(LOGBOOK_PATH="$LOGBOOK_PATH" PENDING_OUT="$pending_msg_file" bun -e '
-  const fs = require("fs"), path = require("path");
-  let log = [];
-  try { log = JSON.parse(fs.readFileSync(process.env.LOGBOOK_PATH, "utf8")); } catch {}
-  let lastTermStatus = "none";
-  let lastExecutingIdx = -1;
-  for (let i = log.length - 1; i >= 0; i--) {
-    const s = log[i].status;
-    if ((s === "executing" || s === "executed") && lastTermStatus === "none") lastTermStatus = s;
-    if (s === "executing" && lastExecutingIdx < 0) lastExecutingIdx = i;
-    if (lastTermStatus !== "none" && lastExecutingIdx >= 0) break;
-  }
-  let pendingHash = "";
-  if (lastTermStatus === "executed" && lastExecutingIdx >= 0) {
-    for (let i = lastExecutingIdx + 1; i < log.length; i++) {
-      if (log[i].status === "pending") {
-        fs.writeFileSync(process.env.PENDING_OUT, log[i].message || "");
-        pendingHash = log[i].hash || "";
-        break;
-      }
-    }
-  }
-  process.stdout.write(lastTermStatus + "\t" + pendingHash);
+py_out=$(LOGBOOK_PATH="$LOGBOOK_PATH" PENDING_OUT="$pending_msg_file" python3 -c '
+import json, os, sys
+p = os.environ["LOGBOOK_PATH"]
+out = os.environ["PENDING_OUT"]
+log = []
+try:
+  with open(p) as f: log = json.load(f)
+except: pass
+last_term = "none"
+last_exec_idx = -1
+for i in range(len(log)-1, -1, -1):
+  s = log[i].get("status", "")
+  if s in ("executing", "executed") and last_term == "none": last_term = s
+  if s == "executing" and last_exec_idx < 0: last_exec_idx = i
+  if last_term != "none" and last_exec_idx >= 0: break
+pending_hash = ""
+if last_term == "executed" and last_exec_idx >= 0:
+  for i in range(last_exec_idx+1, len(log)):
+    if log[i].get("status") == "pending":
+      with open(out, "w") as f: f.write(log[i].get("message", ""))
+      pending_hash = log[i].get("hash", "")
+      break
+sys.stdout.write(last_term + "\t" + pending_hash)
 ' 2>/dev/null || printf 'none\t')
 
-last_term="${bun_out%%	*}"
-pending_hash="${bun_out##*	}"
+last_term="${py_out%%	*}"
+pending_hash="${py_out##*	}"
 
 [[ "$last_term" != "executed" ]] && exit 0
 [[ -s "$pending_msg_file" ]] || exit 0
@@ -594,17 +606,22 @@ HOOKEOF
   local settings_dir="$worktree_path/.claude"
   local settings_file="$settings_dir/settings.local.json"
   mkdir -p "$settings_dir"
-  SETTINGS_FILE="$settings_file" HOOK_CMD="$stop_hook_script" bun -e '
-    const fs = require("fs");
-    const p = process.env.SETTINGS_FILE;
-    const hookCmd = process.env.HOOK_CMD;
-    let cfg = {};
-    try { cfg = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
-    cfg.hooks = cfg.hooks || {};
-    cfg.hooks.Stop = cfg.hooks.Stop || [];
-    const exists = cfg.hooks.Stop.some(h => Array.isArray(h.hooks) && h.hooks.some(c => c.command === hookCmd));
-    if (!exists) cfg.hooks.Stop.push({ hooks: [{ type: "command", command: hookCmd }] });
-    fs.writeFileSync(p, JSON.stringify(cfg, null, 2));
+  SETTINGS_FILE="$settings_file" HOOK_CMD="$stop_hook_script" python3 -c '
+import json, os
+p = os.environ["SETTINGS_FILE"]
+hook_cmd = os.environ["HOOK_CMD"]
+cfg = {}
+try:
+  with open(p) as f: cfg = json.load(f)
+except: pass
+cfg.setdefault("hooks", {}).setdefault("Stop", [])
+exists = any(
+  any(c.get("command") == hook_cmd for c in h.get("hooks", []))
+  for h in cfg["hooks"]["Stop"]
+)
+if not exists:
+  cfg["hooks"]["Stop"].append({"hooks": [{"type": "command", "command": hook_cmd}]})
+with open(p, "w") as f: json.dump(cfg, f, indent=2)
   '
 }
 
@@ -623,17 +640,19 @@ write_worktree_permissions() {
   local settings_file="$settings_dir/settings.local.json"
 
   mkdir -p "$settings_dir"
-  bun -e "
-    const fs = require('fs');
-    const path = '$settings_file';
-    let cfg = {};
-    try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
-    cfg.autoCompactEnabled = true;
-    cfg.env = cfg.env || {};
-    cfg.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = '88';
-    cfg.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = '200000';
-    fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
-  "
+  SETTINGS_FILE="$settings_file" python3 -c '
+import json, os
+p = os.environ["SETTINGS_FILE"]
+cfg = {}
+try:
+  with open(p) as f: cfg = json.load(f)
+except: pass
+cfg["autoCompactEnabled"] = True
+cfg.setdefault("env", {})
+cfg["env"]["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = "88"
+cfg["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = "200000"
+with open(p, "w") as f: json.dump(cfg, f, indent=2)
+  '
 }
 
 write_worktree_notify_wrapper() {
@@ -823,7 +842,7 @@ choose_cleanup_owner() {
 
 check_dependency "$(mux_dependency)"
 check_dependency git
-check_dependency bun
+check_dependency python3
 if ! mux_is_cmux; then
   detect_tmux_base_indexes
 fi
