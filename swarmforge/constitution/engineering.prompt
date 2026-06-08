@@ -25,7 +25,7 @@
 - Run acceptance generation and acceptance tests sequentially.
 - Avoid running whole-suite language test commands concurrently with acceptance generation.
 - Every agent except the specifier must run unit tests and acceptance tests before handoff and fix any failures.
-- The architect, hardener, and QA must run property tests before handoff when the project has them and fix any failures.
+- The architect, hardender, and QA must run property tests before handoff when the project has them and fix any failures.
 - Run the relevant local verification command before handoff whenever the project has one.
 - Do not edit mutation testing or Gherkin acceptance mutation manifests by hand; allow approved mutation tools to update those manifests as part of their normal runs.
 - Do not commit unrelated local changes or generated artifacts unless required for the task.

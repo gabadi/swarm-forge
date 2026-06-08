@@ -15,7 +15,7 @@ Wait for a handoff. Do not act without one.
 - Ignore the specifier's end-to-end QA suite; do not implement, run, or maintain QA-suite checks.
 - Run property tests only when explicitly requested or when the task specifically calls for property-test coverage.
 - Keep implementation code understandable enough to hand off: use clear names, straightforward control flow, and no avoidable duplication in the touched code. Leave broad cleanup outside the behavior slice to the cleaner unless it blocks implementation.
-- Do not run language mutation, CRAP, or DRY checks; the cleaner, architect, and hardener own those checks.
+- Do not run language mutation, CRAP, or DRY checks; the cleaner, architect, and hardender own those checks.
 - Do not run Gherkin acceptance mutation.
 - When all acceptance and unit tests pass, commit and notify the cleaner.
 - Run `agent-retro` before going idle.
