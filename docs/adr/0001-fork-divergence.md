@@ -18,6 +18,30 @@ Upstream only supports tmux. This environment runs inside cmux, where tmux behav
 
 The `./swarm` wrapper downloads shared scripts from `gabadi/swarm-forge`, not `unclebob/swarm-forge`. This must always point to this fork so projects get scripts that include the cmux backend. When rebasing runnable branches, reapply this URL change on top.
 
+**Prompt bundle inlining at launch** — `main` branch, commit `08e7f25`
+
+Files changed: `swarmforge/scripts/swarmforge.sh` — added `resolve_prompt_bundle`; rewrote `write_agent_instruction_file`.
+
+At launch, the full prompt bundle for each role is resolved via BFS from `swarmforge/constitution.prompt` and `swarmforge/roles/<role>.prompt` (grepping for `swarmforge/*.prompt` references, deduped in discovery order) and written as a pre-resolved XML envelope (`<swarmforge_agent_context role="...">`, one `<file path="...">` block per file) to `.swarmforge/prompts/<role>.md`. The preamble tells agents not to re-read prompt files. For `claude`: delivered via `--append-system-prompt-file`. For codex/grok/others: delivered as the initial message. When rebasing, reapply these changes on top of upstream `main`.
+
+---
+
+**Auto-compaction on role worktrees** — `main` branch, commit `08e7f25`
+
+Files changed: `swarmforge/scripts/swarmforge.sh` — added `write_worktree_permissions`; called from `prepare_worktrees`.
+
+Each non-master role worktree gets `autoCompactEnabled: true`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: "88"`, and `CLAUDE_CODE_AUTO_COMPACT_WINDOW: "200000"` merged into `.claude/settings.local.json` at swarm launch via `bun -e`. Idempotent. When rebasing, reapply this change on top of upstream `main`.
+
+---
+
+**Notify harness (partial — `main` only)** — `main` branch, commit `08e7f25`
+
+Files changed: `swarmforge/scripts/swarmforge.sh` — added `write_deliver_script`, `write_stop_hook`; rewrote `write_notify_script`; extended `sessions.tsv` with worktree path; updated worktree wrappers to export `SWARMFORGE_SENDER_WORKTREE`.
+
+The prompt-driven queue is replaced with a shell harness. `notify-agent.sh` (generated at launch) validates the sender worktree, reads git HEAD, writes `sent`+`executed` to the sender's `logbook.json`, checks the receiver's logbook for last terminal state (`executing`/`executed`), and either runs the delivery sequence immediately or appends a `pending` entry. The shared `swarmforge-deliver.sh` (also generated) runs the 7-step delivery: write `executing` → git reset → `/clear` → sleep 1s → `/rename` → bundle → message. Each role gets a per-role stop hook (baked-in path vars) that reads its own logbook and delivers the first `pending` entry after the last `executing` on every agent stop. Role prompt cleanup (`pending-messages/` removal, logbook write instruction removal) is still pending on `four-pack` and `six-pack` — see [idea-A](../ideas/idea-A-notify-harness.md). When rebasing, reapply these changes on top of upstream `main`.
+
+---
+
 ### Temporary (drop once upstream fixes)
 
 **logbook.json contradiction** — `four-pack` commit `6770ae4`, `six-pack` commit `d8b2e27`
@@ -30,12 +54,10 @@ Ideas under consideration. Not yet designed or implemented. Each has a detailed 
 
 | Idea | Summary | Spec | Open questions |
 |------|---------|------|----------------|
-| A | Notify harness — shell queue, `/clear` + bundle re-inject, Stop hook idle signal, commit hash in trailer | [idea-A](../ideas/idea-A-notify-harness.md) | **Decision** — design settled; see § "Design decisions: Idea A" below |
-| B | Prompt bundle inlining at launch — XML envelope, BFS resolution, system prompt delivery | [idea-B](../ideas/idea-B-prompt-bundle-inlining.md) | **Decision** — design settled; see § "Design decisions: Idea B" below |
+| A | Notify harness — shell queue, `/clear` + bundle re-inject, Stop hook idle signal, commit hash in trailer | [idea-A](../ideas/idea-A-notify-harness.md) | **Partially implemented** — `swarmforge.sh` on `main` done (commit `08e7f25`); role prompt cleanup pending on `four-pack`/`six-pack` |
 | C | Integrator role — owns PR + CI + merge; specifier moves to own worktree | [idea-C](../ideas/idea-C-integrator-role.md) | **Decision** — design settled; see § "Design decisions: Idea C" below |
 | D | Role idle gates — no handoff = no action, remove startup install directives | [idea-D](../ideas/idea-D-idle-gates.md) | **Decision** — design settled; see § "Design decisions: Idea D" below |
 | E | Back-routing defects — route to directly-upstream role with failing step + repro | [idea-E](../ideas/idea-E-back-routing-defects.md) | **Decision** — design settled; see § "Design decisions: Idea E" below |
-| F | Auto-compaction on role worktrees — 88%/200k | [idea-F](../ideas/idea-F-auto-compaction.md) | **Decision** — design settled; see § "Design decisions: Idea F" below |
 | G | Per-technology engineering file — selected at install time | [idea-G](../ideas/idea-G-per-tech-engineering-file.md) | **Rejected** — adding a language is 2-3 lines in the shared table; template machinery is not justified |
 | H | swarm-cleanup --all mode | [idea-H](../ideas/idea-H-cleanup-all-mode.md) | **Rejected** — one-liner the operator can run manually; cmux UI covers the primary use case |
 | I | swarmforge/ write deny on role worktrees | [idea-I](../ideas/idea-I-swarmforge-write-deny.md) | **Rejected** — deferred; revisit if prompt drift becomes a real observed problem |
@@ -128,19 +150,6 @@ Design settled. No new domain vocabulary.
 
 ---
 
-### Design decisions: Idea F
-
-Design settled. No new domain vocabulary.
-
-**Merge, never overwrite.** `write_worktree_permissions` reads the existing `.claude/settings.local.json` (or starts from `{}`), unions in the compaction settings, and writes back. Implemented via `bun -e` inline JavaScript — same pattern as the mini-apps reference implementation. Idempotent.
-
-**Values fixed.** `autoCompactEnabled: true`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: "88"`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW: "200000"`. No per-role overrides.
-
-**Files changed:**
-- `main`: `swarmforge/scripts/swarmforge.sh` — add `write_worktree_permissions` function; call it from `prepare_worktrees`
-
----
-
 ### Design decisions: Idea E
 
 Design settled. No new domain vocabulary.
@@ -198,18 +207,6 @@ Design settled. See `CONTEXT.md` for domain vocabulary (Landing, Routing cycle, 
 - `four-pack` + `six-pack`: `swarmforge/roles/specifier.prompt` — add reset-to-origin/main step; remove merge instruction
 - `four-pack`: `swarmforge/roles/architect.prompt` — notify integrator instead of specifier
 - `six-pack`: `swarmforge/roles/QA.prompt` — notify integrator instead of specifier
-
----
-
-### Design decisions: Idea B
-
-Design settled. See `CONTEXT.md` for domain vocabulary (Prompt bundle, Bundle cache). Key decisions:
-
-**XML envelope adopted.** `write_agent_instruction_file` wraps the resolved bundle in `<swarmforge_agent_context role="...">` with an `<instructions>` preamble and one `<file path="...">` block per file. The preamble explicitly tells the agent the content is pre-resolved — it must not open the prompt files itself.
-
-**BFS resolver with regex.** `resolve_prompt_bundle` walks each file grepping for `swarmforge/[A-Za-z0-9_./-]+\.prompt` references, BFS with dedup. Constitution bundle resolved first, role bundle merged after (deduped against constitution). This keeps the resolver in sync automatically if constitution sub-files are added or removed.
-
-**Agent-agnostic bundle, delivery channel differs.** `write_agent_instruction_file` produces the same XML regardless of agent type. For `claude`: delivered via `--append-system-prompt-file`. For codex/grok/others: delivered via `$(cat bundle)` as the initial message. `/clear` survival (system prompt) is a claude-only benefit; other agents rely on Idea A's delivery sequence for re-injection.
 
 ---
 
