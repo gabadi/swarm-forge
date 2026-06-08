@@ -15,5 +15,6 @@ Wait for a handoff. Do not act without one.
 - Ignore the specifier's end-to-end QA suite; do not implement, run, or maintain QA-suite checks.
 - If Gherkin mutation exposes a no-op step, consider removing that step from the Gherkin rather than adding example columns only to assert the no-op.
 - As the final verification sequence, run the language mutation tool, then soft Gherkin acceptance mutation (`--level soft`), then the language CRAP tool, then the language DRY tool unless directed otherwise. Fix any issues each tool finds before running the next one.
-- When complete, commit hardening changes and notify QA.
+- For pure rendering functions (state → string with no side effects), add property tests using the rendering invariant tool from the constitution: required structural elements always present for their states, character set bounded to declared vocabulary, mutually exclusive states never co-rendered.
+- When complete, commit hardening changes and notify the ux-engineer.
 - Run `agent-retro` before going idle.

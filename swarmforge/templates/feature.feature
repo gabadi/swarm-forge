@@ -51,6 +51,20 @@ Feature: <feature name>
   # Format:
   #   - Does NOT: <exclusion>
   #   - ASSUMED: <assumption — flag if uncertain>
+  #
+  # UX INTENT: none
+  # Ask: does this feature have user-visible rendering, layout, or interaction behaviour?
+  #      If yes, author all four dimensions below as concrete observable statements.
+  #      Omit if the feature has no UX requirements — absence tells the UX Engineer to skip.
+  # Visual Composition: how elements are spatially arranged and visually distinguished
+  # Information Hierarchy: what is prominent, secondary, or hidden; reading order
+  # Interaction Feel: responsiveness, affordances, feedback on user actions
+  # State Transitions: what changes between states (loading, empty, error, success)
+  # Format:
+  #   Visual Composition: <observable statement>
+  #   Information Hierarchy: <observable statement>
+  #   Interaction Feel: <observable statement>
+  #   State Transitions: <observable statement>
 
   # <feature-slug>-1
   Scenario Outline: <description>
