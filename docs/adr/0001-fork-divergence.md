@@ -150,6 +150,19 @@ Design settled. No new domain vocabulary.
 
 ---
 
+### Design decisions: Idea F
+
+Design settled. No new domain vocabulary.
+
+**Merge, never overwrite.** `write_worktree_permissions` reads the existing `.claude/settings.local.json` (or starts from `{}`), unions in the compaction settings, and writes back. Implemented via `bun -e` inline JavaScript — same pattern as the mini-apps reference implementation. Idempotent.
+
+**Values fixed.** `autoCompactEnabled: true`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: "88"`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW: "200000"`. No per-role overrides.
+
+**Files changed:**
+- `main`: `swarmforge/scripts/swarmforge.sh` — add `write_worktree_permissions` function; call it from `prepare_worktrees`
+
+---
+
 ### Design decisions: Idea E
 
 Design settled. No new domain vocabulary.
@@ -207,6 +220,21 @@ Design settled. See `CONTEXT.md` for domain vocabulary (Landing, Routing cycle, 
 - `four-pack` + `six-pack`: `swarmforge/roles/specifier.prompt` — add reset-to-origin/main step; remove merge instruction
 - `four-pack`: `swarmforge/roles/architect.prompt` — notify integrator instead of specifier
 - `six-pack`: `swarmforge/roles/QA.prompt` — notify integrator instead of specifier
+
+---
+
+### Design decisions: Idea B
+
+Design settled. See `CONTEXT.md` for domain vocabulary (Prompt bundle, Bundle cache). Key decisions:
+
+**XML envelope adopted.** `write_agent_instruction_file` wraps the resolved bundle in `<swarmforge_agent_context role="...">` with an `<instructions>` preamble and one `<file path="...">` block per file. The preamble explicitly tells the agent the content is pre-resolved — it must not open the prompt files itself.
+
+**BFS resolver with regex.** `resolve_prompt_bundle` walks each file grepping for `swarmforge/[A-Za-z0-9_./-]+\.prompt` references, BFS with dedup. Constitution bundle resolved first, role bundle merged after (deduped against constitution). This keeps the resolver in sync automatically if constitution sub-files are added or removed.
+
+**Agent-agnostic bundle, delivery channel differs.** `write_agent_instruction_file` produces the same XML regardless of agent type. For `claude`: delivered via `--append-system-prompt-file`. For codex/grok/others: delivered via `$(cat bundle)` as the initial message. `/clear` survival (system prompt) is a claude-only benefit; other agents rely on Idea A's delivery sequence for re-injection.
+
+**Files changed:**
+- `main`: `swarmforge/scripts/swarmforge.sh` — add `resolve_prompt_bundle`; rewrite `write_agent_instruction_file`
 
 ---
 
