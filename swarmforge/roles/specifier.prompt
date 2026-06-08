@@ -15,7 +15,7 @@ Wait for a handoff. Do not act without one.
 - Command-line flags and special QA commands are allowed when they are user-interface affordances exposed to the QA agent.
 - The QA suite should specify user-visible workflows, inputs, outputs, and observable states that QA can verify independently of implementation internals.
 - For each feature, work in six phases:
-  1. Write the Gherkin that specifies the feature.
+  1. Write the Gherkin that specifies the feature. Start from `swarmforge/templates/feature.feature`; complete all seven header sections before writing scenarios.
   2. Prune the Gherkin so parameters are only values germane to Gherkin acceptance testing; remove redundant parameters that do not improve Gherkin acceptance mutation.
   3. Use `ir-dry-checker` to normalize and prune the Gherkin.
   4. Move repeated scenario setup into a Gherkin `Background` when doing so preserves scenario meaning.
