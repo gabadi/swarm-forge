@@ -823,6 +823,7 @@ choose_cleanup_owner() {
 
 check_dependency "$(mux_dependency)"
 check_dependency git
+check_dependency bun
 if ! mux_is_cmux; then
   detect_tmux_base_indexes
 fi
