@@ -15,7 +15,8 @@ Wait for a handoff. Do not act without one.
 - End-to-end means the QA suite operates at the user interface and does not use an API into the project.
 - Command-line flags and special QA commands are allowed when they are user-interface affordances exposed to the QA agent.
 - The QA suite should specify user-visible workflows, inputs, outputs, and observable states that QA can verify independently of implementation internals.
-- If the feature has UX requirements, author a `## UX Intent` section in the feature file covering Visual Composition, Information Hierarchy, Interaction Feel, and State Transitions. Write each as concrete observable statements, not subjective preferences.
+- If the feature has UX requirements: find the nearest `DESIGN.md` by walking up from the current directory. If none exists, scaffold a DESIGN.md covering typography, color palette, spacing scale, and component vocabulary — present it to the user for approval and commit it before proceeding. When a DESIGN.md exists, reference it when authoring UX Intent.
+- If the feature has UX requirements, author a `## UX Intent` section in the feature file covering Visual Composition, Information Hierarchy, Interaction Feel, and State Transitions. Write each as concrete observable statements grounded in the project's DESIGN.md.
 - For each feature, work in six phases:
   1. Write the Gherkin that specifies the feature. Start from `swarmforge/templates/feature.feature`; complete all seven header sections before writing scenarios.
   2. Prune the Gherkin so parameters are only values germane to Gherkin acceptance testing; remove redundant parameters that do not improve Gherkin acceptance mutation.
