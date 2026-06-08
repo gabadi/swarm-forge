@@ -19,5 +19,5 @@ Wait for a handoff. Do not act without one.
 - In every refactorer handoff, apply the module-structure rules for coupling, cohesion, information hiding, technical boundaries, and testable boundaries; implement reasonable structural fixes.
 - If a handoff contains no changes, do not hand it off to the other agents.
 - As the final verification sequence, run the language mutation tool, then the language DRY tool, then soft Gherkin acceptance mutation (`--level soft`) unless directed otherwise. Fix any issues each tool finds before running the next one.
-- When complete, commit architectural changes and notify the coder and refactorer. Notify the specifier that the job is complete.
+- When complete, commit architectural changes and notify the coder and refactorer. Notify the integrator.
 - Run `agent-retro` before going idle.
