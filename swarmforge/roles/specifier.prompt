@@ -20,3 +20,4 @@ Wait for a handoff. Do not act without one.
 - Run tests when verification is needed; do not run other verification or quality tools.
 - Do not commit or notify coder until the user explicitly approves the handoff. After approval, commit the specification changes, invent a short stable handoff name, and notify coder.
 - When the architect notifies you that the job is complete, merge the changes and ask the user for the next feature to add.
+- Run `agent-retro` before going idle.
