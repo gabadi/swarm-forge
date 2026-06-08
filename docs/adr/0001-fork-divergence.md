@@ -73,8 +73,37 @@ Ideas under consideration. Not yet designed or implemented. Each has a detailed 
 | K | Setup / preflight — `entire enable` + `entire agent add` per backend, automatic at first `./swarm` | [idea-K](../ideas/idea-K-setup-preflight.md) | **Decision** — design settled; see § "Design decisions: Idea K" below |
 | L | Gherkin header sections — 7 mandatory sections per feature file (rubric + format) | [idea-L](../ideas/idea-L-gherkin-header-sections.md) | **Decision** — design settled; see § "Design decisions: Idea L" below |
 | M | UX Intent in the pipeline — specifier authors UX Intent, coder reads it, UX Engineer role (six-pack only) | [idea-M](../ideas/idea-M-ux-intent-pipeline.md) | **Decision** — design settled; see § "Design decisions: Idea M" below |
+| N | Install/upgrade — `./swarm upgrade` refreshes scripts, prompts, and skills; automatic skill install on first launch | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea N" below |
 
 **Rejected**: D12–D15 (engineering prompt tweaks — test-type separation, property-test close-out, full-mutation rule, Gherkin mutation command inline) — too much prompt drift from upstream. D24 (role prompt restructure into Standing rules + numbered Lifecycle) — same reason. G (per-technology engineering file — template system not justified; adding a language is 2-3 lines in the shared table). H (swarm-cleanup --all — one-liner the operator runs manually; cmux UI covers the primary use case). I (swarmforge write-deny — deferred; revisit if prompt drift becomes an observed problem).
+
+### Design decisions: Idea N
+
+Design settled. No new domain vocabulary.
+
+**`./swarm upgrade` refreshes everything.** Scripts (from `main`), prompts + config (from the source branch), and skills (agent-retro + entire skills). A partial upgrade that refreshes only scripts while leaving stale prompts is worse than no upgrade.
+
+**Source branch tracked in `.swarmforge/source-branch`.** Written once on first `./swarm` run. Upgrade reads it to know which branch to pull prompts from. Inference fallback: count roles in `swarmforge.conf` (≥6 = `six-pack`, otherwise `four-pack`) for projects installed before this was added.
+
+**Prompt upgrade: overwrite with `git diff` warning.** If `swarmforge/` has local changes, upgrade warns and asks for confirmation before overwriting. No backup directory — git history is the recovery path.
+
+**`agent-retro` bundled on `main` in `swarmforge/skills/agent-retro/`.** It is our own artifact (custom SKILL.md with `entire` integration + bundled `extract.py`). Bundled alongside scripts so a single first-run download brings everything. Both `four-pack` and `six-pack` use it identically — one copy on `main`.
+
+**`entire` skills fetched at runtime, pinned to commit SHA.** `swarmforge/scripts/install-pins.conf` on `main` holds `ENTIRE_SKILLS_SHA=<sha>`. Upgrade fetches the tarball at that SHA from `https://github.com/entireio/skills/archive/<sha>.tar.gz`. All 11 skills installed to `.claude/skills/` in the target project. Pin bump = deliberate commit on `main`.
+
+**Auto-install on first launch.** `swarmforge.sh` checks `.swarmforge/skills-installed` against the current `ENTIRE_SKILLS_SHA` pin. If missing or stale, calls `install_skills` before launching agents. Degrades gracefully — if network is unavailable, warns and continues (swarm still launches, skills just not installed).
+
+**`./swarm upgrade` does not launch the swarm.** It updates files and exits. Operator runs `./swarm` separately to start.
+
+**Files changed:**
+- `main`: `swarmforge/scripts/install-pins.conf` (new) — external dependency pins
+- `main`: `swarmforge/skills/agent-retro/SKILL.md` (new) — custom skill with `entire` integration
+- `main`: `swarmforge/skills/agent-retro/scripts/extract.py` (new) — bundled from `giannimassi/agent-retro`
+- `main`: `swarmforge/scripts/swarmforge.sh` — add `install_skills`, `ensure_skills_installed`; call from startup sequence
+- `four-pack` + `six-pack`: `./swarm` — add `upgrade` command; copy `swarmforge/skills/` on first-run download; write `.swarmforge/source-branch`
+- `four-pack`: `swarmforge/roles/*.prompt` — add `agent-retro before idle` to all 4 roles
+
+---
 
 ### Design decisions: Idea M
 
