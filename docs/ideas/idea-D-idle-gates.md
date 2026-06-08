@@ -1,44 +1,28 @@
 # Idea D — Role Idle Gates
 
-**Status:** Proposed
+**Status:** Decision — Pending Implementation
+**Depends on:** Idea A (delivery sequence re-sends bundle on every handoff, making startup directives fire every task)
+**Design decisions:** docs/adr/0001-fork-divergence.md § "Design decisions: Idea D"
+**Domain vocabulary:** CONTEXT.md — Handoff, Idle gate
 
-## Context
+## What to implement
 
-Upstream's role prompts include startup directives that fire when the agent launches:
+1. Add the following line to every role prompt on both `four-pack` and `six-pack`, at the top of the role rules: "Wait for a handoff. Do not act without one."
+2. Remove all "At startup, install/build X" lines from every role prompt on both branches.
 
-- Coder: "At startup, make sure the acceptance pipeline … is in place" with sub-bullets for installation
-- Architect: "At startup, install the language mutation tool…" and "At startup, install the language DRY tool…"
-- Refactorer: "At startup, install the language CRAP and DRY tools…"
+---
 
-These were designed for a greenfield repo where tools are not yet installed. On a mature project where these tools are already present (e.g. an existing Addi repo), they fire unnecessarily at every cold launch — scanning the whole codebase, reinstalling tools that are already installed, consuming tokens and time with no output.
+## Files changed
 
-Upstream also has no explicit idle gate: a role launched without a handoff will begin looking for work to do (scanning the repo, running verification, applying its role rules proactively). This is destructive on a mature codebase.
-
-## Decision
-
-Add an explicit idle gate to each role prompt:
-
-> Act only on an explicit handoff. No handoff — including a cold launch or work you could find yourself — means idle: wait for a message. Do not scan, install, verify, or apply role rules without a handoff.
-
-Remove the startup install directives. Tool installation belongs in project setup (see Idea K), not in role startup.
-
-**Files changed:**
-- `four-pack` + `six-pack`: `swarmforge/roles/*.prompt` — idle gate added, startup install directives removed
-
-**Diff from upstream:** Small. The idle gate is additive. The startup directive removal is a drop of lines that are no-ops on mature projects. Minimal divergence.
-
-## Tradeoffs
-
-**What improves:**
-- Cold launches are safe on mature projects — no proactive scanning or installing
-- Roles wait cleanly for a handoff, consistent with how the harness (Idea A) delivers work
-- Removes install overhead from every startup
-
-**What disappears:**
-- Automatic tool installation on greenfield projects — operators must ensure tools are installed before starting the swarm (this belongs in Idea K's setup step)
-
-## Alternatives considered
-
-**Keep startup directives, guard them with an existence check:** Add "if the tool is already installed, skip." Prompt verbosity increases; still fires a check on every startup. Rejected — Idea K handles setup once; per-launch checks are redundant.
-
-**Keep proactive scanning, gate only installation:** Roles would still scan the repo on cold launch, applying their quality rules to whatever they find. On a mature codebase this produces unsolicited refactoring or mutation runs. Rejected.
+| Branch | File | Change |
+|--------|------|--------|
+| `four-pack` | `swarmforge/roles/coder.prompt` | Add idle gate; remove startup install directive |
+| `four-pack` | `swarmforge/roles/architect.prompt` | Add idle gate; remove startup install directives (mutation tool, gherkin tools, DRY tool) |
+| `four-pack` | `swarmforge/roles/refactorer.prompt` | Add idle gate; remove startup install directive |
+| `four-pack` | `swarmforge/roles/specifier.prompt` | Add idle gate |
+| `six-pack` | `swarmforge/roles/coder.prompt` | Add idle gate; remove startup install directive |
+| `six-pack` | `swarmforge/roles/architect.prompt` | Add idle gate |
+| `six-pack` | `swarmforge/roles/QA.prompt` | Add idle gate; remove startup install directive |
+| `six-pack` | `swarmforge/roles/cleaner.prompt` | Add idle gate; remove startup install directive |
+| `six-pack` | `swarmforge/roles/hardender.prompt` | Add idle gate; remove startup install directives (tools + gherkin tools) |
+| `six-pack` | `swarmforge/roles/specifier.prompt` | Add idle gate |
