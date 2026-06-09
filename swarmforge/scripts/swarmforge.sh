@@ -456,8 +456,17 @@ if ! git -C "$SENDER_WORKTREE" diff --quiet 2>/dev/null || ! git -C "$SENDER_WOR
   exit 1
 fi
 
-# Read sender HEAD and append [handoff] to message
-SENDER_HASH=$(git -C "$SENDER_WORKTREE" rev-parse HEAD 2>/dev/null || echo "unknown")
+# Read sender HEAD, skipping entire checkpoint commits, and append [handoff] to message
+_sender_commit=$(git -C "$SENDER_WORKTREE" rev-parse HEAD 2>/dev/null || echo "unknown")
+while [[ "$_sender_commit" != "unknown" ]]; do
+  _sender_msg=$(git -C "$SENDER_WORKTREE" log -1 --format="%s" "$_sender_commit" 2>/dev/null) || break
+  case "$_sender_msg" in
+    "Checkpoint: "*|"Finalize transcript for Checkpoint: "*) ;;
+    *) break ;;
+  esac
+  _sender_commit=$(git -C "$SENDER_WORKTREE" rev-parse "${_sender_commit}^" 2>/dev/null) || { _sender_commit="unknown"; break; }
+done
+SENDER_HASH="$_sender_commit"
 printf '\n[handoff] merge-commit=%s' "$SENDER_HASH" >> "$msg_file"
 
 SENDER_LOGBOOK="$SENDER_WORKTREE/logbook.json"
@@ -687,6 +696,24 @@ write_worktree_notify_wrapper() {
   chmod +x "$wrapper"
 }
 
+# Walk back from a commit (default HEAD) until we reach a commit that is NOT an
+# entire checkpoint. Checkpoint commits have messages matching "Checkpoint: *" or
+# "Finalize transcript for Checkpoint: *". Returns the resolved hash, or "HEAD" as
+# fallback if something goes wrong.
+find_clean_base_commit() {
+  local dir="$1" ref="${2:-HEAD}" commit msg
+  commit=$(git -C "$dir" rev-parse "$ref" 2>/dev/null) || { echo "HEAD"; return; }
+  while true; do
+    msg=$(git -C "$dir" log -1 --format="%s" "$commit" 2>/dev/null) || break
+    case "$msg" in
+      "Checkpoint: "*|"Finalize transcript for Checkpoint: "*) ;;
+      *) echo "$commit"; return ;;
+    esac
+    commit=$(git -C "$dir" rev-parse "${commit}^" 2>/dev/null) || break
+  done
+  echo "HEAD"
+}
+
 prepare_worktrees() {
   local i worktree_name worktree_path branch_name
   for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
@@ -699,7 +726,9 @@ prepare_worktrees() {
     fi
 
     if [[ ! -e "$worktree_path/.git" && ! -d "$worktree_path/.git" ]]; then
-      git -C "$WORKING_DIR" worktree add --force -B "$branch_name" "$worktree_path" HEAD >/dev/null
+      local base_commit
+      base_commit=$(find_clean_base_commit "$WORKING_DIR" HEAD)
+      git -C "$WORKING_DIR" worktree add --force -B "$branch_name" "$worktree_path" "$base_commit" >/dev/null
     fi
 
     write_worktree_notify_wrapper "$worktree_path"
