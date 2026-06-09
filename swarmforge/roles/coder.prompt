@@ -17,5 +17,5 @@ Wait for a handoff. Do not act without one.
 - Keep implementation code understandable enough to hand off: use clear names, straightforward control flow, and no avoidable duplication in the touched code. Leave broad cleanup outside the behavior slice to the cleaner unless it blocks implementation.
 - Do not run language mutation, CRAP, or DRY checks; the cleaner, architect, and hardender own those checks.
 - Do not run Gherkin acceptance mutation.
-- When all acceptance and unit tests pass, commit and notify the cleaner.
+- When all acceptance and unit tests pass, commit and notify the ux-engineer.
 - Run `agent-retro` before going idle.
