@@ -78,11 +78,38 @@ fi
 
 write_source_branch
 
-# Preflight: set up entire tracing once per project (Idea K)
+# Preflight: scaffold project once per install (Ideas K + O)
 SETUP_SENTINEL="$STATE_DIR/setup-complete"
 if [[ ! -f "$SETUP_SENTINEL" ]]; then
+  echo "SwarmForge: running preflight setup..."
+
+  # Idea O: probe default branch, scaffold .gitignore, inject permission allow-rules
+  DEFAULT_BRANCH="$(git -C "$SCRIPT_DIR" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || echo 'main')"
+
+  GITIGNORE="$SCRIPT_DIR/.gitignore"
+  for _entry in 'logbook.json' 'tmp/' '.swarmforge/' 'coverage.out'; do
+    grep -qxF "$_entry" "$GITIGNORE" 2>/dev/null || printf '%s\n' "$_entry" >> "$GITIGNORE"
+  done
+
+  CLAUDE_SETTINGS="$SCRIPT_DIR/.claude/settings.json"
+  mkdir -p "$SCRIPT_DIR/.claude"
+  DEFAULT_BRANCH="$DEFAULT_BRANCH" CLAUDE_SETTINGS="$CLAUDE_SETTINGS" python3 -c '
+import json, os
+p = os.environ["CLAUDE_SETTINGS"]
+branch = os.environ["DEFAULT_BRANCH"]
+cfg = {}
+try:
+  with open(p) as f: cfg = json.load(f)
+except: pass
+allow = cfg.setdefault("permissions", {}).setdefault("allow", [])
+for rule in ["Bash(gh pr merge*)", f"Bash(git reset --hard origin/{branch})"]:
+  if rule not in allow:
+    allow.append(rule)
+with open(p, "w") as f: json.dump(cfg, f, indent=2)
+  '
+
+  # Idea K: set up entire tracing
   if command -v entire &>/dev/null; then
-    echo "SwarmForge: running preflight setup..."
     (cd "$SCRIPT_DIR" && entire enable --no-github --telemetry=false) || true
     if [[ -f "$SCRIPT_DIR/swarmforge/swarmforge.conf" ]]; then
       while IFS= read -r line; do
@@ -90,12 +117,13 @@ if [[ ! -f "$SETUP_SENTINEL" ]]; then
         [[ -n "$backend" ]] && (cd "$SCRIPT_DIR" && entire agent add "$backend") || true
       done < <(grep -E '^window ' "$SCRIPT_DIR/swarmforge/swarmforge.conf" | sort -k3 -u)
     fi
-    mkdir -p "$(dirname "$SETUP_SENTINEL")"
-    touch "$SETUP_SENTINEL"
-    echo "SwarmForge: preflight complete."
   else
     echo "SwarmForge: 'entire' not installed — retros will run without trace backing."
   fi
+
+  mkdir -p "$(dirname "$SETUP_SENTINEL")"
+  touch "$SETUP_SENTINEL"
+  echo "SwarmForge: preflight complete."
 fi
 
 if [[ "${1:-}" == "stop" ]]; then
