@@ -8,6 +8,13 @@ accept scenarios that rest on a declared gap.
 - Tier 2 — emulated: stateful, protocol-level emulation. Declare what the emulator does not implement.
 - Tier 3 — external domain: third-party APIs or other teams' services. Wire-level stubbed. Declare contract reference and gaps.
 
+Rules for every declared dependency:
+
+- Entry format: `name: tier N; implementation; gaps: <description or none>`.
+- Every harness scenario starts from declared seed state; reset dependency state between scenarios.
+- Tier 2/3 dependencies must expose post-interaction state for assertion (e.g. the message is in the emulator's outbox), so scenarios can assert effects, not only the system's surface.
+- A swarm-built twin (tier 2 last resort) must not be authored by the role that wrote the system code it emulates, and must be validated against recorded real traffic or the vendor's official SDK tests.
+
 ## Dependencies
 
 (none)
