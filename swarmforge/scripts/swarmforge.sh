@@ -697,6 +697,25 @@ with open(p, "w") as f: json.dump(cfg, f, indent=2)
   '
 }
 
+write_worktree_advisor() {
+  local worktree_path="$1"
+  local advisor_model="$2"
+  local settings_dir="$worktree_path/.claude"
+  local settings_file="$settings_dir/settings.local.json"
+
+  mkdir -p "$settings_dir"
+  SETTINGS_FILE="$settings_file" ADVISOR_MODEL="$advisor_model" python3 -c '
+import json, os
+p = os.environ["SETTINGS_FILE"]
+cfg = {}
+try:
+  with open(p) as f: cfg = json.load(f)
+except: pass
+cfg["advisorModel"] = os.environ["ADVISOR_MODEL"]
+with open(p, "w") as f: json.dump(cfg, f, indent=2)
+  '
+}
+
 write_worktree_notify_wrapper() {
   local worktree_path="$1"
   local wrapper_dir="$worktree_path/swarmtools"
@@ -859,13 +878,13 @@ launch_role() {
 
   write_agent_instruction_file "$role" "$prompt_file"
   write_stop_hook "$index"
+  [[ -n "$role_advisor" ]] && write_worktree_advisor "$role_worktree" "$role_advisor"
 
   case "$agent" in
     claude)
       local claude_flags=""
       [[ -n "$role_model" ]]   && claude_flags+=" --model '$role_model'"
       [[ -n "$role_effort" ]]  && claude_flags+=" --effort '$role_effort'"
-      [[ -n "$role_advisor" ]] && claude_flags+=" --advisor '$role_advisor'"
       launch_cmd="export PATH='$SWARM_TOOLS_DIR:$SCRIPT_DIR':\$PATH && cd '$role_worktree' && claude${claude_flags} --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}' \"\$(cat '$prompt_file')\""
       ;;
     codex)
