@@ -62,6 +62,26 @@ _Avoid_: UX spec, design doc, UX requirements
 The six-pack role between coder and cleaner. Reads UX Intent from the feature file and the nearest DESIGN.md, runs the binary, and fixes mismatches in rendering code. Has fix authority over violations of both — UX Intent (per-feature compliance) and DESIGN.md (project-level aesthetic consistency) — even when a violation is absent from UX Intent. Adds golden file snapshots and rendering invariants. On a mismatch requiring model state changes, back-routes to the coder with a specific actionable message; the full pipeline re-runs. Depth cap N=3 (tracked via routing count in the handoff message trail) — after three back-routes, stops and asks the user. If no `## UX Intent` section is present, notifies QA immediately without changes.
 _Avoid_: UX Reviewer, visual reviewer, UX auditor
 
+**Observation Harness**:
+The per-project committed test harness that starts the system as it ships, injects inputs through its production interface at controlled timing, captures observable state over time, and supports assertions on those captures. Declared in `project.prompt`. Scenarios are committed code — re-runnable by any role. Distinct from the *shell harness* (the delivery machinery in `swarmforge/scripts/`).
+_Avoid_: surface harness, observation suite, e2e harness, integration harness
+
+**Surface tool**:
+The concrete tool implementing the Observation Harness for a given surface type. The surface type is declared in `project.prompt`; the surface tool is acquired at role startup the same way language tools are. Examples: tmux/PTY driver for TUI surfaces; Playwright CLI for web UI; HTTP client (hurl/curl-class) for HTTP APIs; event injection tooling for headless services.
+_Avoid_: observation harness tool, test driver, UI driver
+
+**Harness scenario**:
+A committed, re-runnable script under `observation-harness/` at the project root that drives the Observation Harness for one specific user flow: starts the system, injects inputs through the production interface at controlled timing, and asserts on captured state. Authored by the ux-engineer; re-executed independently by QA. Doubles as a permanent regression suite. Missing scenarios at `observation-harness/` when a project declares a surface is a defect QA routes back.
+_Avoid_: e2e test, scenario script, harness script
+
+**Dependency tier**:
+The fidelity classification assigned to each external dependency in the fidelity manifest. Four tiers decided in order: tier 0 — the system itself (always real); tier 1 — owned infrastructure that runs locally as the real engine (Postgres in Docker); tier 2 — stateful protocol-level emulation (Firebase emulator, LocalStack, swarm-built twin as last resort); tier 3 — external domain the swarm does not own (third-party APIs, other teams' services), always wire-level stubbed. Declared gaps at tier 2/3 are machine-readable; specifier and QA refuse to write or accept scenarios resting on a declared gap.
+_Avoid_: fidelity level, mock tier, stub tier
+
+**Fidelity manifest**:
+The machine-readable declaration of every external dependency: name, tier (0–3), implementation, and declared gaps. Lives in `swarmforge/dependency-manifest.prompt` (a separate constitution sub-file, auto-resolved by the BFS bundle resolver). Tier 2 entries list what the emulator does not implement; tier 3 entries carry the contract reference and version. Machine-readable so the specifier and QA can programmatically refuse to write or accept scenarios that rest on a declared gap. Empty file by default for projects with no external dependencies.
+_Avoid_: dependency manifest, environment manifest, stub config
+
 **Logbook statuses** (one logbook per role; the harness owns all writes — the agent writes nothing; `logbook.json` is always gitignored and never committed):
 - `pending` — appended by `notify-agent.sh` into the TARGET role's logbook when that role is busy. Carries `{status, timestamp, message, hash, sender}`. Multiple entries may exist; delivered in order. `notify-agent.sh` never rejects.
 - `executing` — written by the harness as step 0 of the delivery sequence (before `/clear`). Carries `{status, timestamp, message, hash, sender}` forwarded from the `pending` entry being delivered, so the role can recover its task if the session restarts mid-task.
