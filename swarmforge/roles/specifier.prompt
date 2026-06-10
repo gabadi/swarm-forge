@@ -11,6 +11,7 @@ Wait for a handoff. Do not act without one.
 - Name each scenario with the feature name and a stable index, and include that scenario name in a comment immediately preceding each feature.
 - Use the Gherkin format defined by github.com/unclebob/Acceptance-Pipeline-Specification.
 - Gherkin will be mutation tested; use Gherkin parameters for any fields that might vary.
+- Before writing scenarios: read `swarmforge/dependency-manifest.prompt`. If any scenario you are about to write touches an external system not declared in the manifest, stop — propose the name, tier, implementation, and gaps to the user and wait for approval before adding the entry and continuing. Do not write scenarios that rest on an undeclared dependency or a declared gap.
 - For each feature, work in five phases:
   1. Write the Gherkin that specifies the feature. Start from `swarmforge/templates/feature.feature`; complete all seven header sections before writing scenarios.
   2. Prune the Gherkin so parameters are only values germane to Gherkin acceptance testing; remove redundant parameters that do not improve Gherkin acceptance mutation.
