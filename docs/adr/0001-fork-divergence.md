@@ -75,6 +75,11 @@ Ideas under consideration. Not yet designed or implemented. When each is decided
 | M | UX Intent in the pipeline — specifier authors UX Intent, coder reads it, UX Engineer role (six-pack only) | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea M" below |
 | N | Install/upgrade — `./swarm upgrade` refreshes scripts, prompts, and skills; automatic skill install on first launch | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea N" below |
 | O | Install scaffold — `.gitignore`, permission allow-rules, default-branch probe written at install time | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea O" below |
+| P | Observation Harness doctrine — surface tool table in `engineering.prompt`; surface field in `project.prompt`; new `swarmforge/dependency-manifest.prompt` for fidelity manifest | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea P" below |
+| Q | QA conversion fidelity rule — every Expected bullet maps to a harness assertion or is marked `NOT AUTOMATED — <reason>`; "through declared surface harness" replaces "through UI only" | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea Q" below |
+| R | Platform-feasibility stop rule — spec vs platform capability conflict → stop and report; workaround comment in code is the smell this rule fired and was suppressed | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea R" below |
+| S | Boundary logic detection — extend cleaner/refactorer mutation scan to boundary files with ~15–20 site threshold; above threshold means logic, not adaptation → extract before handoff | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea S" below |
+| T | Evidence as code — ux-engineer commits harness scenarios to `observation-harness/`; QA finds and re-executes by convention; absent scenarios = defect QA routes back | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea T" below |
 
 **Rejected**: D12–D15 (engineering prompt tweaks — test-type separation, property-test close-out, full-mutation rule, Gherkin mutation command inline) — too much prompt drift from upstream. D24 (role prompt restructure into Standing rules + numbered Lifecycle) — same reason. G (per-technology engineering file — template system not justified; adding a language is 2-3 lines in the shared table). H (swarm-cleanup --all — one-liner the operator runs manually; cmux UI covers the primary use case). I (swarmforge write-deny — deferred; revisit if prompt drift becomes an observed problem).
 
@@ -328,6 +333,100 @@ Design settled. No new domain vocabulary.
 
 **Files changed:**
 - `four-pack` + `six-pack`: `./swarm` — add `.gitignore` generation, default-branch probe, and `settings.json` permission injection to the install sequence
+
+---
+
+### Design decisions: Idea P
+
+Design settled. See `CONTEXT.md` for domain vocabulary (Observation Harness, Surface tool, Fidelity manifest, Dependency tier).
+
+**Root cause addressed.** Both tetris defects (screen blink, runaway DAS) survived a 250-test, 8-role pipeline because no gate ever drove the running system through its production interface. The gap is surface-agnostic — the same hole exists for web, APIs, and platform services.
+
+**Surface tool table added to `engineering.prompt`.** Follows the existing language tool table pattern. Declares the harness tool per surface type: tmux/PTY driver for TUI, Playwright CLI for web, HTTP client for HTTP APIs, event injection for headless services. Roles owning live verification (ux-engineer, QA) acquire the declared surface tool at task startup, same as language tools.
+
+**No surface declaration field.** Roles owning live verification identify the project surface from the codebase (TUI output code, HTTP handlers, etc.) and select the appropriate tool from the surface tool table. No explicit declaration in `project.prompt` — a placeholder would be meaningless before the project is customised, and agents can read the code.
+
+**Dependency fidelity manifest in a separate constitution sub-file.** Lives at `swarmforge/dependency-manifest.prompt` — a separate file so project-specific dependency data does not clutter `project.prompt`. Auto-resolved by the BFS bundle resolver (same as other constitution sub-files). Format: bullet list with `name: tier N; implementation; gaps: <description or none>` per entry. Empty file by default for projects with no external dependencies. Tier definitions inline in the file so agents have context without needing external docs.
+
+**Three tiers (system itself is always implicit, never declared).** Tier 1 — owned infrastructure that runs locally as the real engine (Postgres in Docker). Tier 2 — stateful protocol-level emulation (vendor-official > established third-party > swarm-built twin as last resort). Tier 3 — external domain the swarm does not own (third-party APIs, other teams' services), always wire-level stubbed. Declared gaps at tier 2/3 are machine-readable; specifier and QA refuse to write or accept scenarios resting on a declared gap. For a project with no external dependencies (e.g. a pure TUI game), the manifest is "(none)".
+
+**Specifier owns the manifest.** Before writing scenarios, the specifier reads `dependency-manifest.prompt`. If a feature touches an external system not yet declared, the specifier stops, proposes the name/tier/implementation/gaps to the user, and waits for approval before adding the entry and continuing. Tier assignment is an architectural decision — the user must approve before it becomes a declared constraint. The pattern mirrors DESIGN.md ownership: specifier discovers the need, proposes, user approves. This rule is in `specifier.prompt` on both branches.
+
+**Applies to both branches.** Four-pack and six-pack both get the surface tool table and project.prompt surface field. `dependency-manifest.prompt` ships on both as an empty template.
+
+**Files changed:**
+- `four-pack` + `six-pack`: `swarmforge/constitution/engineering.prompt` — add surface tool table and context-driven harness acquisition rule
+- `four-pack` + `six-pack`: `swarmforge/dependency-manifest.prompt` (new) — empty template with tier 1–3 definitions inline
+
+---
+
+### Design decisions: Idea Q
+
+Design settled. No new domain vocabulary.
+
+**Root cause addressed (F3).** QA's "through the UI only" rule was correct in intent but silent on what "UI" means mechanically. The result: in-process Go function calls replaced terminal byte injection, and constants checks wore the name of behavioral procedures. The rule lacked a mechanical referent.
+
+**Two rule changes to `QA.prompt` (six-pack only).** First: "Run the end-to-end QA suite through the user interface only" becomes "Run the end-to-end QA suite through the declared surface harness only; do not use an API into the project." This names the mechanical referent. Second: new rule added — every Expected bullet of a QA procedure must map to a harness assertion, or be explicitly marked `NOT AUTOMATED — <reason>` and escalated. Asserting constants or configuration never satisfies a behavioral assertion.
+
+**Four-pack has no QA role.** This change is six-pack only.
+
+**Files changed:**
+- `six-pack`: `swarmforge/roles/QA.prompt` — update surface harness rule; add conversion fidelity rule
+
+---
+
+### Design decisions: Idea R
+
+Design settled. No new domain vocabulary.
+
+**Root cause addressed (F1, F2).** The specifier's QA procedure stated the correct expected behavior; the coder added a comment acknowledging the spec conflict and worked around it silently. Neither role had a rule that required stopping and escalating on a platform capability mismatch.
+
+**New constitution rule.** Added to `swarmforge/constitution/workflow.prompt` alongside the existing defect back-routing rule (Idea E). Rule: when a spec requirement conflicts with what the platform can actually deliver, stop and report to the user before proceeding. A workaround comment in code is the smell that this rule fired and was suppressed. This rule is not a "stop on confusion" rule — it is specific to spec vs. platform capability conflicts.
+
+**Binds specifier, coder, ux-engineer (six-pack) / specifier and coder (four-pack).** Applied via the constitution, not per-role prompts, so it applies to every role that reads the constitution.
+
+**The "existing rule" referenced in the doc does not currently exist explicitly.** The doc's "extend the existing UX Intent vs Gherkin conflict → stop and report" is a forward reference to a pattern, not an existing prompt rule. Idea R adds the rule fresh.
+
+**Files changed:**
+- `four-pack` + `six-pack`: `swarmforge/constitution/workflow.prompt` — add platform-feasibility stop rule
+
+---
+
+### Design decisions: Idea S
+
+Design settled. No new domain vocabulary.
+
+**Root cause addressed (F4).** The cleaner already ran `mutate4go --scan` on changed and new *testable* source files, with a 100-site threshold triggering a split. Boundary files (unsuitable modules: TUI drivers, OS input handlers, environment adapters) were excluded from all tool worklists by design — so pure logic embedded in them was invisible to every quality gate.
+
+**Extension: boundary files now scanned with a lower threshold.** The cleaner (six-pack) and refactorer (four-pack) run `mutate4go --scan` on boundary files too. Threshold is ~15–20 mutation sites (lower because boundary files are expected to be thin adapter shells; logic above that threshold means implementation is embedded in the wrong place). Above threshold → extract to a testable module before handoff. Extraction funnels the logic into the existing mutation/CRAP/coverage loops automatically; no new test types required.
+
+**"Tested only through a stripped view" counts as untested.** The `PlainRows()` case: `Frame.String()` was in a testable module but its tests asserted the ANSI-stripped output, making the escape codes and newline placement — the only things `String()` adds — unasserted. This is added as an explicit anti-pattern note in the cleaner/refactorer rule.
+
+**Files changed:**
+- `six-pack`: `swarmforge/roles/cleaner.prompt` — extend mutation scan to boundary files with ~15–20 site threshold; add "tested only through a stripped view" anti-pattern
+- `four-pack`: `swarmforge/roles/refactorer.prompt` — same extension
+
+---
+
+### Design decisions: Idea T
+
+Design settled. See `CONTEXT.md` for domain vocabulary (Harness scenario).
+
+**Root cause addressed (F5, F2).** The ux-engineer was told to "run the binary and observe the live experience" — a claim obligation with no artifact and no checker. The role left no evidence; nothing demanded evidence; the pipeline proceeded as if verification had occurred.
+
+**Deliverable is committed code, not a claim.** The ux-engineer's verification deliverable is committed, re-runnable harness scenarios under `observation-harness/` at the project root. Screenshots and prose claims do not satisfy the obligation (agents can fabricate captures; only reproducibility counts).
+
+**No handoff field, no `notify-agent.sh` changes.** An early design considered a `[scenarios: path]` field in the handoff trailer, validated by `notify-agent.sh`. Rejected: (a) ux-engineer hands off to the cleaner, not QA — there is no direct ux-engineer → QA handoff to gate on; (b) `notify-agent.sh` has no role-specific logic and checking a field in all handoffs would break every other role. The mechanical gate is QA's mandatory re-execution obligation: if `observation-harness/` is absent or empty when a project declares a surface, QA routes back as a defect. The pipeline stall is the enforcement mechanism.
+
+**QA re-executes independently.** `QA.prompt` gains a rule: find and re-execute the harness scenarios in `observation-harness/`; if none exist for a project that declares a surface, route back as a defect. This is the semantic check — QA cannot accept verification it has not re-run.
+
+**Scenarios double as regression suite.** Once committed, harness scenarios are permanent regression artifacts, re-runnable on any future delivery by any role.
+
+**Six-pack only.** No ux-engineer or QA role in four-pack.
+
+**Files changed:**
+- `six-pack`: `swarmforge/roles/ux-engineer.prompt` — commit harness scenarios to `observation-harness/` before handoff to cleaner
+- `six-pack`: `swarmforge/roles/QA.prompt` — re-execute scenarios in `observation-harness/`; absent scenarios = defect
 
 ---
 
