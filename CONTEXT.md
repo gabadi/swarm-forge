@@ -75,7 +75,7 @@ A committed, re-runnable script under `observation-harness/` at the project root
 _Avoid_: e2e test, scenario script, harness script
 
 **Dependency tier**:
-The fidelity classification assigned to each external dependency in the fidelity manifest. Four tiers decided in order: tier 0 — the system itself (always real); tier 1 — owned infrastructure that runs locally as the real engine (Postgres in Docker); tier 2 — stateful protocol-level emulation (Firebase emulator, LocalStack, swarm-built twin as last resort); tier 3 — external domain the swarm does not own (third-party APIs, other teams' services), always wire-level stubbed. Declared gaps at tier 2/3 are machine-readable; specifier and QA refuse to write or accept scenarios resting on a declared gap.
+The fidelity classification assigned to each dependency in the fidelity manifest. Three tiers, applied to everything the system relies on beyond itself: tier 1 — owned infrastructure that runs locally as the real engine (Postgres in Docker); tier 2 — stateful protocol-level emulation (Firebase emulator, LocalStack, swarm-built twin as last resort); tier 3 — external domain the swarm does not own (third-party APIs, other teams' services), always wire-level stubbed. Declared gaps at tier 2/3 are machine-readable; specifier and QA refuse to write or accept scenarios resting on a declared gap. The system itself is always real and never declared in the manifest.
 _Avoid_: fidelity level, mock tier, stub tier
 
 **Fidelity manifest**:
