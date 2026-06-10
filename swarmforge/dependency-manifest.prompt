@@ -1,14 +1,13 @@
 # Dependency Fidelity Manifest
 
-List every external dependency with its tier, implementation, and declared gaps.
-Specifier and QA: do not write or accept scenarios that rest on a declared gap.
+List every dependency the system relies on beyond itself: infrastructure,
+emulated services, and external APIs. Specifier and QA: do not write or
+accept scenarios that rest on a declared gap.
 
-Tier definitions:
-- Tier 0 — the system itself: always runs real, as shipped. Never substituted.
 - Tier 1 — owned infrastructure: runs the real engine locally (e.g. Postgres in Docker).
-- Tier 2 — emulated dependency: stateful, protocol-level emulation. Declare what the emulator does not implement.
-- Tier 3 — external domain: third-party APIs or other teams' services. Always wire-level stubbed. Declare contract reference and gaps.
+- Tier 2 — emulated: stateful, protocol-level emulation. Declare what the emulator does not implement.
+- Tier 3 — external domain: third-party APIs or other teams' services. Wire-level stubbed. Declare contract reference and gaps.
 
 ## Dependencies
 
-(none — add entries as: `- <name>: tier <N>; <implementation>; gaps: <description or none>`)
+(none)
