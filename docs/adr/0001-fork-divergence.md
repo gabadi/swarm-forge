@@ -350,6 +350,8 @@ Design settled. See `CONTEXT.md` for domain vocabulary (Observation Harness, Sur
 
 **Four tiers.** Tier 0 — the system itself (always real, never substituted). Tier 1 — owned infrastructure that runs locally as the real engine (Postgres in Docker). Tier 2 — stateful protocol-level emulation (vendor-official > established third-party > swarm-built twin as last resort). Tier 3 — external domain the swarm does not own (third-party APIs, other teams' services), always wire-level stubbed. Declared gaps at tier 2/3 are machine-readable; specifier and QA refuse to write or accept scenarios resting on a declared gap.
 
+**Specifier owns the manifest.** Before writing scenarios, the specifier reads `dependency-manifest.prompt`. If a feature touches an external system not yet declared, the specifier stops, proposes the name/tier/implementation/gaps to the user, and waits for approval before adding the entry and continuing. Tier assignment is an architectural decision — the user must approve before it becomes a declared constraint. The pattern mirrors DESIGN.md ownership: specifier discovers the need, proposes, user approves. This rule is in `specifier.prompt` on both branches.
+
 **Applies to both branches.** Four-pack and six-pack both get the surface tool table and project.prompt surface field. `dependency-manifest.prompt` ships on both as an empty template.
 
 **Files changed:**
