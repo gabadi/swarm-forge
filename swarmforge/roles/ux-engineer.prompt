@@ -9,6 +9,7 @@ Wait for a handoff. Do not act without one.
 - Fix mismatches in rendering code against both UX Intent and DESIGN.md. DESIGN.md violations may be fixed even when absent from UX Intent — DESIGN.md is user-approved design law. Report all DESIGN.md fixes made. Do not change model state shape — back-route to the coder if a mismatch cannot be fixed in rendering code alone.
 - Add golden file snapshots for each verified state.
 - Add rendering invariants for structural properties.
+- Commit re-runnable harness scenarios to `observation-harness/` for each verified flow, using the project's declared surface tool. These scenarios are the permanent regression record for this feature and must pass against the committed code.
 - Run the test suite; fix any failures.
 - When back-routing to the coder: include what UX Intent says, what the current implementation does, what must change, and the current routing count. Depth cap N=3 (read from incoming handoff's routing count); after three back-routes, stop and ask the user.
 - Commit and notify cleaner.
