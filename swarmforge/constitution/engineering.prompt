@@ -14,7 +14,7 @@
   - Web UI: Playwright CLI; real browser against a running instance.
   - HTTP API: HTTP client (hurl or curl-class); real requests against a running instance — never in-process handlers.
   - Headless service / platform component: event injection at the system's ingress; observe at egress and dependency state.
-- The role owning live verification acquires the declared surface tool before the first harness run, the same way language tools are acquired.
+- The role owning live verification identifies the project surface from the codebase and acquires the appropriate surface tool before the first harness run, the same way language tools are acquired.
 - Work in small, reviewable increments.
 - Prefer the simplest design that supports the current behavior and leaves clear options for the next step.
 - Keep tests close to the behavior being changed.

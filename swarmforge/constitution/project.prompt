@@ -2,7 +2,6 @@
 
 - This project is configured for SwarmForge with four Codex-backed agents: specifier, coder, refactorer, and architect.
 - Project language: Go.
-- Project surface: <declare surface type — TUI | web | HTTP API | headless service>.
 - Preserve project-local SwarmForge configuration under `swarmforge/`.
 - Keep swarm state local under `.swarmforge/`, worktrees under `.worktrees/`, helper scripts under `swarmtools/`, logs under `logs/`, and shared agent context under `agent_context/`.
 - Prefer terse, explicit handoffs that report state and request role-appropriate review. Do not include verifications or sender process narrative.
