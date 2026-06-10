@@ -134,8 +134,10 @@ In a runnable branch:
 `swarmforge/swarmforge.conf` defines the swarm window-by-window. Each line has this form:
 
 ```conf
-window <role> <agent> <worktree>
+window <role> <agent> <worktree> [key=value ...]
 ```
+
+The first four fields are required. Any additional `key=value` pairs are optional and control the model, effort level, and advisor model for that role.
 
 You can define as many windows as your project needs. Each `role` maps to a corresponding prompt file at `swarmforge/<role>.prompt`, so a config containing `architect`, `coder`, `reviewer`, `research`, and `release` windows would expect:
 
@@ -164,6 +166,26 @@ In the example above, the agents run in these worktrees:
 - `architect` -> `.worktrees/architect`
 
 If a window uses `master` as its worktree name, SwarmForge does not create `.worktrees/master`; that role runs in the main working directory on the `master` branch.
+
+### Per-role model, effort, and advisor
+
+Append `key=value` pairs after the worktree to configure the model and effort for any role:
+
+```conf
+window specifier  claude specifier  model=opus    effort=xhigh  advisor=sonnet
+window coder      claude coder      model=sonnet  effort=high
+window architect  codex  architect  model=o3
+```
+
+Supported keys:
+
+| Key | Supported agents | Effect |
+|-----|-----------------|--------|
+| `model` | all | Sets the model. `claude`: `--model`; `codex`: `-c model=`; `copilot`/`grok`: `--model` |
+| `effort` | `claude`, `copilot`, `grok` | Sets the effort level (`low`, `medium`, `high`, `xhigh`). Silently skipped for `codex`. |
+| `advisor` | `claude` only | Sets the advisor model via `--advisor`. Ignored for all other backends. |
+
+All keys are optional and per-role — omitting a key leaves that setting at the agent's default. Unknown keys are silently ignored.
 
 ## tmux Behavior
 
