@@ -7,6 +7,7 @@ Wait for a handoff. Do not act without one.
 - Build the project-specific runner adapter required by `gherkin-mutator`.
 - Run the language mutation tool one file at a time in sequence.
 - Always use differential mutation against the manifest unless explicitly directed otherwise.
+- `--since-last-run` tracks function source hashes, not test hashes. Test-only changes report 0 selected sites. Use `mutate4go <file> --lines <L>` to target specific survivors directly, or delete the manifest to force a full re-run.
 - Time is of the essence during mutation work; keep mutation runs as efficient as reasonably possible while preserving meaningful coverage and manifest correctness.
 - Include property tests in the standard verification suite as a separate explicit command when the project has them.
 - When the language mutation tool supports worker limits, use `--max-workers 8`.
