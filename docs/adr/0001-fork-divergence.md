@@ -80,6 +80,7 @@ Ideas under consideration. Not yet designed or implemented. When each is decided
 | R | Platform-feasibility stop rule — spec vs platform capability conflict → stop and report; workaround comment in code is the smell this rule fired and was suppressed | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea R" below |
 | S | Boundary logic detection — extend cleaner/refactorer mutation scan to boundary files with ~15–20 site threshold; above threshold means logic, not adaptation → extract before handoff | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea S" below |
 | T | Evidence as code — ux-engineer commits harness scenarios to `observation-harness/`; QA finds and re-executes by convention; absent scenarios = defect QA routes back | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea T" below |
+| U | Per-role model, effort, and advisor in `swarmforge.conf` — inline key=value tail on window lines; applied as CLI flags at launch; all backends; advisor claude-only | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea U" below |
 
 **Rejected**: D12–D15 (engineering prompt tweaks — test-type separation, property-test close-out, full-mutation rule, Gherkin mutation command inline) — too much prompt drift from upstream. D24 (role prompt restructure into Standing rules + numbered Lifecycle) — same reason. G (per-technology engineering file — template system not justified; adding a language is 2-3 lines in the shared table). H (swarm-cleanup --all — one-liner the operator runs manually; cmux UI covers the primary use case). I (swarmforge write-deny — deferred; revisit if prompt drift becomes an observed problem).
 
@@ -427,6 +428,41 @@ Design settled. See `CONTEXT.md` for domain vocabulary (Harness scenario).
 **Files changed:**
 - `six-pack`: `swarmforge/roles/ux-engineer.prompt` — commit harness scenarios to `observation-harness/` before handoff to cleaner
 - `six-pack`: `swarmforge/roles/QA.prompt` — re-execute scenarios in `observation-harness/`; absent scenarios = defect
+
+---
+
+### Design decisions: Idea U
+
+Design settled. No new domain vocabulary.
+
+**Motivation.** Different roles have different compute needs — the architect reasoning about design warrants a more capable model than the coder grinding through implementation. Until now, model, effort, and advisor were entirely absent from the swarm config; the only per-role knob was the agent backend. This adds optional per-role overrides without breaking existing configs.
+
+**Syntax: inline key=value tail appended to window lines.** Existing 4-field lines are parsed unchanged. Fields beyond position 4 are parsed as `key=value` pairs stored per-role. Unrecognised or unsupported keys for a given backend are silently ignored.
+
+```conf
+# before (still valid)
+window coder   claude coder
+
+# after (opt-in per role)
+window specifier  claude specifier  model=opus    effort=xhigh  advisor=sonnet
+window coder      claude coder      model=sonnet  effort=high
+window architect  codex  architect  model=o3
+```
+
+**Granularity is per-role, not per-backend.** Two `claude` roles can use different models. A global per-backend setting would discard the role abstraction's value.
+
+**Three keys defined:**
+
+| Key | Applies to | CLI mapping |
+|-----|-----------|-------------|
+| `model` | all backends | `claude`: `--model <val>` · `codex`: `-c model="<val>"` · `copilot`: `--model <val>` · `grok`: `--model <val>` |
+| `effort` | claude, copilot, grok | `--effort <val>` (codex has no effort flag — silently skipped) |
+| `advisor` | claude only | `--advisor <val>` (ignored for all other backends) |
+
+**No pre-populated values in runnable branch configs.** Runnable configs express topology (roles + worktrees), not opinions about model cost. Operators add keys to the window lines they care about — the feature is fully opt-in.
+
+**Files changed:**
+- `main`: `swarmforge/scripts/swarmforge.sh` — extend `parse_config` to accept ≥4 fields (was exactly 4) and read optional key=value tail into `ROLE_MODELS`, `ROLE_EFFORTS`, `ROLE_ADVISORS` parallel arrays; extend `launch_role` to append flags per-backend when the corresponding key is non-empty
 
 ---
 
