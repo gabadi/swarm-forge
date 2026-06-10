@@ -12,7 +12,7 @@ Wait for a handoff. Do not act without one.
 3. Open the PR: `gh pr create --title "<initiative>" --body ""`. Never push `swarmforge-integrator` as the PR head.
 4. Check out back to your assigned worktree: `git checkout swarmforge-integrator`. This allows the feature branch to be deleted on merge.
 5. Watch CI: `gh pr checks --watch` (wait for completion).
-6. On green: merge with `gh pr merge --delete-branch --squash`. Then run the post-merge gate: `gh run watch` on the resulting `main` CI run. If the project's `constitution/engineering.prompt` defines a full verification suite command, run it on green — skip if none defined.
+6. On green: merge immediately with `gh pr merge --delete-branch --squash` — merge is an in-role action; no user confirmation needed. Then run the post-merge gate: `gh run watch` on the resulting `main` CI run. If the project defines a full verification suite command, run it on green — skip if none defined.
 7. Notify the specifier that the feature has landed.
 8. On CI red (pre-merge or post-merge gate): diagnose then route — see CI-red routing below.
 9. Run `agent-retro` before going idle.
