@@ -63,15 +63,15 @@ The six-pack role between coder and cleaner. Reads UX Intent from the feature fi
 _Avoid_: UX Reviewer, visual reviewer, UX auditor
 
 **Observation Harness**:
-The per-project committed test harness that starts the system as it ships, injects inputs through its production interface at controlled timing, captures observable state over time, and supports assertions on those captures. Declared in `project.prompt`. Scenarios are committed code — re-runnable by any role. Distinct from the *shell harness* (the delivery machinery in `swarmforge/scripts/`).
+The per-project committed test harness that starts the system as it ships, injects inputs through its production interface at controlled timing, captures observable state over time, and supports assertions on those captures. Scenarios are committed code — re-runnable by any role. Distinct from the *shell harness* (the delivery machinery in `swarmforge/scripts/`).
 _Avoid_: surface harness, observation suite, e2e harness, integration harness
 
 **Surface tool**:
-The concrete tool implementing the Observation Harness for a given surface type. The surface type is declared in `project.prompt`; the surface tool is acquired at role startup the same way language tools are. Examples: tmux/PTY driver for TUI surfaces; Playwright CLI for web UI; HTTP client (hurl/curl-class) for HTTP APIs; event injection tooling for headless services.
+The concrete tool implementing the Observation Harness for a given surface type. The live verification role identifies the surface from the codebase and acquires the appropriate tool, the same way language tools are acquired. Examples: tmux/PTY driver for TUI surfaces; Playwright CLI for web UI; HTTP client (hurl/curl-class) for HTTP APIs; event injection tooling for headless services.
 _Avoid_: observation harness tool, test driver, UI driver
 
 **Harness scenario**:
-A committed, re-runnable script under `observation-harness/` at the project root that drives the Observation Harness for one specific user flow: starts the system, injects inputs through the production interface at controlled timing, and asserts on captured state. Authored by the ux-engineer; re-executed independently by QA. Doubles as a permanent regression suite. Missing scenarios at `observation-harness/` when a project declares a surface is a defect QA routes back.
+A committed, re-runnable script under `observation-harness/` at the project root that drives the Observation Harness for one specific user flow: starts the system, injects inputs through the production interface at controlled timing, and asserts on captured state. Authored by the ux-engineer; re-executed independently by QA. Doubles as a permanent regression suite. Missing scenarios at `observation-harness/` when the project has a user-facing surface is a defect QA routes back.
 _Avoid_: e2e test, scenario script, harness script
 
 **Dependency tier**:
@@ -79,7 +79,7 @@ The fidelity classification assigned to each dependency in the fidelity manifest
 _Avoid_: fidelity level, mock tier, stub tier
 
 **Fidelity manifest**:
-The machine-readable declaration of every external dependency: name, tier (0–3), implementation, and declared gaps. Lives in `swarmforge/dependency-manifest.prompt` (a separate constitution sub-file, auto-resolved by the BFS bundle resolver). Tier 2 entries list what the emulator does not implement; tier 3 entries carry the contract reference and version. Machine-readable so the specifier and QA can programmatically refuse to write or accept scenarios that rest on a declared gap. Empty file by default for projects with no external dependencies. Owned by the specifier: before writing scenarios for any feature, the specifier checks the manifest; any undeclared external dependency must be proposed to the user (name, tier, implementation, gaps) and approved before being added and before scenarios proceed. Mirrors the DESIGN.md approval-gate pattern.
+The machine-readable declaration of every external dependency: name, tier (1–3), implementation, and declared gaps. Lives in `swarmforge/dependency-manifest.prompt` (a separate constitution sub-file, auto-resolved by the BFS bundle resolver). Tier 2 entries list what the emulator does not implement; tier 3 entries carry the contract reference and version. Machine-readable so the specifier and QA can programmatically refuse to write or accept scenarios that rest on a declared gap. Empty file by default for projects with no external dependencies. Owned by the specifier: before writing scenarios for any feature, the specifier checks the manifest; any undeclared external dependency must be proposed to the user (name, tier, implementation, gaps) and approved before being added and before scenarios proceed. Mirrors the DESIGN.md approval-gate pattern.
 _Avoid_: dependency manifest, environment manifest, stub config
 
 **Logbook statuses** (one logbook per role; the harness owns all writes — the agent writes nothing; `logbook.json` is always gitignored and never committed):

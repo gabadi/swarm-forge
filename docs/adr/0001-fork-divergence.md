@@ -344,7 +344,7 @@ Design settled. See `CONTEXT.md` for domain vocabulary (Observation Harness, Sur
 
 **Surface tool table added to `engineering.prompt`.** Follows the existing language tool table pattern. Declares the harness tool per surface type: tmux/PTY driver for TUI, Playwright CLI for web, HTTP client for HTTP APIs, event injection for headless services. Roles owning live verification (ux-engineer, QA) acquire the declared surface tool at task startup, same as language tools.
 
-**Surface declaration added to `project.prompt`.** One new line: `Project surface: <TUI | web | HTTP API | headless service>.` Follows the existing `Project language: Go.` pattern. Set at install/customization time per project.
+**No surface declaration field.** Roles owning live verification identify the project surface from the codebase (TUI output code, HTTP handlers, etc.) and select the appropriate tool from the surface tool table. No explicit declaration in `project.prompt` — a placeholder would be meaningless before the project is customised, and agents can read the code.
 
 **Dependency fidelity manifest in a separate constitution sub-file.** Lives at `swarmforge/dependency-manifest.prompt` — a separate file so project-specific dependency data does not clutter `project.prompt`. Auto-resolved by the BFS bundle resolver (same as other constitution sub-files). Format: bullet list with `name: tier N; implementation; gaps: <description or none>` per entry. Empty file by default for projects with no external dependencies. Tier definitions inline in the file so agents have context without needing external docs.
 
@@ -355,9 +355,8 @@ Design settled. See `CONTEXT.md` for domain vocabulary (Observation Harness, Sur
 **Applies to both branches.** Four-pack and six-pack both get the surface tool table and project.prompt surface field. `dependency-manifest.prompt` ships on both as an empty template.
 
 **Files changed:**
-- `four-pack` + `six-pack`: `swarmforge/constitution/engineering.prompt` — add surface tool table and harness acquisition rule
-- `four-pack` + `six-pack`: `swarmforge/constitution/project.prompt` — add `Project surface:` line
-- `four-pack` + `six-pack`: `swarmforge/dependency-manifest.prompt` (new) — empty template with tier definitions inline
+- `four-pack` + `six-pack`: `swarmforge/constitution/engineering.prompt` — add surface tool table and context-driven harness acquisition rule
+- `four-pack` + `six-pack`: `swarmforge/dependency-manifest.prompt` (new) — empty template with tier 1–3 definitions inline
 
 ---
 
