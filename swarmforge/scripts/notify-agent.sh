@@ -3,6 +3,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+usage() {
+  echo "Usage: notify-agent.sh <target-role-or-index> --file <message-file>" >&2
+}
+
+if [[ $# -ne 3 || "${2:-}" != "--file" ]]; then
+  usage
+  exit 1
+fi
+
+TARGET="$1"
+MESSAGE_FILE="$3"
+
 find_project_dir() {
   local git_common_dir
 
@@ -24,27 +36,6 @@ PROJECT_DIR="$(find_project_dir)"
 SESSIONS_FILE="$PROJECT_DIR/.swarmforge/sessions.tsv"
 TMUX_SOCKET_FILE="$PROJECT_DIR/.swarmforge/tmux-socket"
 
-if [[ ! -f "$TMUX_SOCKET_FILE" ]]; then
-  echo "Tmux socket file not found: $TMUX_SOCKET_FILE" >&2
-  exit 1
-fi
-
-TMUX_SOCKET="$(< "$TMUX_SOCKET_FILE")"
-TMUX_WINDOW_BASE_INDEX="$(tmux -S "$TMUX_SOCKET" show-options -gqv base-index 2>/dev/null || echo 0)"
-if [[ ! "$TMUX_WINDOW_BASE_INDEX" == <-> ]]; then
-  TMUX_WINDOW_BASE_INDEX=0
-fi
-TMUX_PANE_BASE_INDEX="$(tmux -S "$TMUX_SOCKET" show-window-options -gqv pane-base-index 2>/dev/null || echo 0)"
-if [[ ! "$TMUX_PANE_BASE_INDEX" == <-> ]]; then
-  TMUX_PANE_BASE_INDEX=0
-fi
-
-if [[ $# -lt 2 ]]; then
-  echo "Usage: notify-agent.sh <target-role-or-index> \"message\"" >&2
-  echo "       notify-agent.sh <target-role-or-index> --file <message-file>" >&2
-  exit 1
-fi
-
 if [[ ! -f "$SESSIONS_FILE" ]]; then
   echo "Sessions file not found: $SESSIONS_FILE" >&2
   exit 1
@@ -64,25 +55,30 @@ resolve_session() {
   return 1
 }
 
-TARGET_SESSION=$(resolve_session "$1") || {
-  echo "Unknown target: $1" >&2
+TARGET_SESSION=$(resolve_session "$TARGET") || {
+  echo "Unknown target: $TARGET" >&2
   exit 1
 }
 
-shift
-if [[ "${1:-}" == "--file" ]]; then
-  if [[ $# -ne 2 ]]; then
-    echo "Usage: notify-agent.sh <target-role-or-index> --file <message-file>" >&2
-    exit 1
-  fi
-  MESSAGE_FILE="$2"
-  if [[ ! -f "$MESSAGE_FILE" ]]; then
-    echo "Message file not found: $MESSAGE_FILE" >&2
-    exit 1
-  fi
-  MESSAGE="$(< "$MESSAGE_FILE")"
-else
-  MESSAGE="$*"
+if [[ ! -f "$MESSAGE_FILE" ]]; then
+  echo "Message file not found: $MESSAGE_FILE" >&2
+  exit 1
+fi
+MESSAGE="$(< "$MESSAGE_FILE")"
+
+if [[ ! -f "$TMUX_SOCKET_FILE" ]]; then
+  echo "Tmux socket file not found: $TMUX_SOCKET_FILE" >&2
+  exit 1
+fi
+
+TMUX_SOCKET="$(< "$TMUX_SOCKET_FILE")"
+TMUX_WINDOW_BASE_INDEX="$(tmux -S "$TMUX_SOCKET" show-options -gqv base-index 2>/dev/null || echo 0)"
+if [[ ! "$TMUX_WINDOW_BASE_INDEX" == <-> ]]; then
+  TMUX_WINDOW_BASE_INDEX=0
+fi
+TMUX_PANE_BASE_INDEX="$(tmux -S "$TMUX_SOCKET" show-window-options -gqv pane-base-index 2>/dev/null || echo 0)"
+if [[ ! "$TMUX_PANE_BASE_INDEX" == <-> ]]; then
+  TMUX_PANE_BASE_INDEX=0
 fi
 
 tmux -S "$TMUX_SOCKET" send-keys -t "${TARGET_SESSION}:${TMUX_WINDOW_BASE_INDEX}.${TMUX_PANE_BASE_INDEX}" -l -- "$MESSAGE"
