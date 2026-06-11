@@ -22,7 +22,7 @@ The `./swarm` wrapper downloads shared scripts from `gabadi/swarm-forge`, not `u
 
 Files changed: `swarmforge/scripts/swarmforge.sh` — added `resolve_prompt_bundle`; rewrote `write_agent_instruction_file`.
 
-At launch, the full prompt bundle for each role is resolved via BFS from `swarmforge/constitution.prompt` and `swarmforge/roles/<role>.prompt` (grepping for `swarmforge/*.prompt` references, deduped in discovery order) and written as a pre-resolved XML envelope (`<swarmforge_agent_context role="...">`, one `<file path="...">` block per file) to `.swarmforge/prompts/<role>.md`. The preamble tells agents not to re-read prompt files. For `claude`: delivered via `--append-system-prompt-file`. For codex/grok/others: delivered as the initial message. When rebasing, reapply these changes on top of upstream `main`.
+At launch, the full prompt bundle for each role is resolved via BFS from `swarmforge/constitution.prompt` and `swarmforge/roles/<role>.prompt` (grepping for `swarmforge/*.prompt` references, deduped in discovery order) and written as a pre-resolved XML envelope (`<swarmforge_agent_context role="...">`, one `<file path="...">` block per file) to `.swarmforge/prompts/<role>.md`. The preamble tells agents not to re-read prompt files. For `claude`: delivered via `--append-system-prompt-file`. For codex/grok/others: delivered as the initial message. When rebasing, reapply these changes on top of upstream `main`. Bundle now also appends `AGENTS.md` and `.agents/roles/<role>.md` from the project root when present (knowledge-promotion loop, issue #20).
 
 ---
 
@@ -81,6 +81,7 @@ Ideas under consideration. Not yet designed or implemented. When each is decided
 | S | Boundary logic detection — extend cleaner/refactorer mutation scan to boundary files with ~15–20 site threshold; above threshold means logic, not adaptation → extract before handoff | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea S" below |
 | T | Evidence as code — ux-engineer commits harness scenarios to `observation-harness/`; QA finds and re-executes by convention; absent scenarios = defect QA routes back | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea T" below |
 | U | Per-role model, effort, and advisor in `swarmforge.conf` — inline key=value tail on window lines; applied as CLI flags at launch; all backends; advisor claude-only | (this ADR) | **Decision** — design settled; see § "Design decisions: Idea U" below |
+| V | Knowledge-promotion loop — curator role, .agents/ file contract, retro scope tags, bundle knowledge injection | issue #20 + docs/specs/issue-20-knowledge-promotion-loop.md | **Decision** — locked 2026-06-11; see issue #20 comment |
 
 **Rejected**: D12–D15 (engineering prompt tweaks — test-type separation, property-test close-out, full-mutation rule, Gherkin mutation command inline) — too much prompt drift from upstream. D24 (role prompt restructure into Standing rules + numbered Lifecycle) — same reason. G (per-technology engineering file — template system not justified; adding a language is 2-3 lines in the shared table). H (swarm-cleanup --all — one-liner the operator runs manually; cmux UI covers the primary use case). I (swarmforge write-deny — deferred; revisit if prompt drift becomes an observed problem).
 
