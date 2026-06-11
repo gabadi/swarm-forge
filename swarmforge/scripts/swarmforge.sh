@@ -150,18 +150,6 @@ has_command() {
 
 source "$SCRIPT_DIR/swarm-terminal-adapter.sh"
 
-remove_nonessential_clone_files() {
-  if [[ "${WORKING_DIR:t}" == "swarm-forge" ]]; then
-    return
-  fi
-
-  if [[ -d "$STATE_DIR" ]]; then
-    return
-  fi
-
-  rm -rf "$WORKING_DIR/examples"
-}
-
 display_name_for_role() {
   local role="$1"
   local normalized="${role//[-_]/ }"
@@ -425,7 +413,6 @@ choose_cleanup_owner() {
 check_dependency tmux
 check_dependency git
 detect_tmux_base_indexes
-remove_nonessential_clone_files
 initialize_git_repo
 ensure_runtime_git_excludes
 parse_config

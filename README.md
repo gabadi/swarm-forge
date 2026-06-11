@@ -80,9 +80,9 @@ SwarmForge is a lightweight, tmux-based orchestration layer that:
 
 - Launches a **config-driven swarm** from a project-local `swarmforge/swarmforge.conf`
 - Creates one tmux session per configured role and opens a terminal surface for each role when the selected backend supports it
-- Reads behavior from project-local `swarmforge/<role>.prompt` files plus a layered `swarmforge/constitution.prompt`
+- Reads behavior from project-local `swarmforge/roles/<role>.prompt` files plus a layered `swarmforge/constitution.prompt`
 - Supports per-role backends such as `claude`, `codex`, `copilot`, or `grok`
-- Provides `notify-agent.sh` from the shared `swarmforge/scripts/` directory for active swarm handoffs
+- Puts the shared `swarmforge/scripts/` directory on each agent's `PATH`, including `notify-agent.sh` for active swarm handoffs
 - Creates git worktrees under `.worktrees/` for roles assigned to dedicated worktree names
 - Initializes a git repository in a new working directory when needed
 - Keeps all swarm state local to the working directory in `.swarmforge/`
@@ -90,7 +90,7 @@ SwarmForge is a lightweight, tmux-based orchestration layer that:
 ## Core Features
 
 - **Config-Driven Topology** — The swarm shape comes from `swarmforge/swarmforge.conf`, not hardcoded shell variables.
-- **Project-Local Roles** — Each role is defined by `swarmforge/<role>.prompt` in the working tree being orchestrated.
+- **Project-Local Roles** — Each role is defined by `swarmforge/roles/<role>.prompt` in the working tree being orchestrated.
 - **Layered Constitution** — `swarmforge/constitution.prompt` can delegate to subordinate files such as `swarmforge/constitution/project.prompt`, `engineering.prompt`, and `workflow.prompt`.
 - **Backend Selection Per Role** — A role can launch `claude`, `codex`, `copilot`, or `grok`.
 - **Observable Swarm** — Open one Terminal window per role and watch the sessions in real time.
@@ -108,13 +108,14 @@ swarmforge/
     project.prompt
     engineering.prompt
     workflow.prompt
-  <role>.prompt
-  ...
+  roles/
+    <role>.prompt
+    ...
 ```
 
 `constitution.prompt` is the entry point. It can define precedence and direct agents to read subordinate constitution files in order. That lets you separate project-specific rules from engineering rules and workflow rules without forcing everything into one large prompt.
 
-Each role in `swarmforge/swarmforge.conf` maps to a corresponding `swarmforge/<role>.prompt` file.
+Each role in `swarmforge/swarmforge.conf` maps to a corresponding `swarmforge/roles/<role>.prompt` file.
 
 ## How It Works
 
@@ -125,7 +126,7 @@ In a runnable branch:
 3. Startup validates the configured role prompts, helper scripts, and terminal adapters.
 4. If the target directory is not already a git repository, startup initializes one and creates the first commit.
 5. Startup creates one git worktree per configured role under `.worktrees/`, unless the role is assigned to `master` or `none`.
-6. Startup puts the shared scripts directory on each agent's `PATH`, including `notify-agent.sh` for handoffs between agents.
+6. Startup puts `swarmforge/scripts/` on each agent's `PATH`, so agents call `notify-agent.sh` directly for handoffs without generating helper scripts in their worktrees.
 7. SwarmForge creates tmux sessions, opens terminal windows, and launches each configured backend in its assigned worktree.
 8. Roles communicate through handoff files and `notify-agent.sh`.
 
@@ -137,13 +138,13 @@ In a runnable branch:
 window <role> <agent> <worktree>
 ```
 
-You can define as many windows as your project needs. Each `role` maps to a corresponding prompt file at `swarmforge/<role>.prompt`, so a config containing `architect`, `coder`, `reviewer`, `research`, and `release` windows would expect:
+You can define as many windows as your project needs. Each `role` maps to a corresponding prompt file at `swarmforge/roles/<role>.prompt`, so a config containing `architect`, `coder`, `reviewer`, `research`, and `release` windows would expect:
 
-- `swarmforge/architect.prompt`
-- `swarmforge/coder.prompt`
-- `swarmforge/reviewer.prompt`
-- `swarmforge/research.prompt`
-- `swarmforge/release.prompt`
+- `swarmforge/roles/architect.prompt`
+- `swarmforge/roles/coder.prompt`
+- `swarmforge/roles/reviewer.prompt`
+- `swarmforge/roles/research.prompt`
+- `swarmforge/roles/release.prompt`
 
 This lets each project choose its own swarm shape instead of being locked to a fixed set of roles.
 
@@ -249,11 +250,3 @@ Each visible agent window is attached to a tmux session. That means terminal sel
 The first window in `swarmforge.conf` is the cleanup window. Closing that top configured window is the intentional shutdown path: SwarmForge tears down the tmux sessions, closes the remaining tracked windows, and shuts down the swarm.
 
 Closing any other tracked window is non-destructive. The watchdog reopens that window and attaches it back to the same tmux session, so the agent state and terminal history remain intact. This is often the simplest way to recover a window that has landed in an unfamiliar tmux mode or otherwise feels stuck.
-
-## Examples
-
-The repository includes example swarm definitions under `examples/`.
-
-- `examples/clojureHTW/swarmforge/` shows a layered constitution and agent prompts for a Clojure Hunt The Wumpus project, including a queueing rule for messages that arrive while an agent is busy.
-
-These examples are documentation references only. Start real projects from the `four-pack` or `six-pack` branches so the project receives a complete, runnable SwarmForge configuration.
