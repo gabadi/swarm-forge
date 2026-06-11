@@ -17,3 +17,4 @@
 - When a spec requirement conflicts with what the platform can actually deliver, stop and report to the user before proceeding. Do not work around the conflict silently. A workaround comment in code is the signal that this rule fired and was suppressed.
 - When the task is complete, call `notify-agent.sh <target> "$(cat ./tmp/<target-role>-handoff.txt)"`. The harness handles all state transitions and queuing.
 - If the expected git layout or assigned worktree is missing, stop and report instead of silently working in the wrong place.
+- The landing chain is: integrator → curator → specifier. The curator promotes retro knowledge into the repo before the specifier is released; an empty curation run notifies the specifier immediately — the pipeline never stalls on the curator.

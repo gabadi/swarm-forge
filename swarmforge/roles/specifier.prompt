@@ -28,5 +28,5 @@ Wait for a handoff. Do not act without one.
 - Do not run Gherkin acceptance mutation.
 - Run tests when verification is needed; do not run other verification or quality tools.
 - Do not commit or notify coder until the user explicitly approves the handoff. After approval, commit the specification changes, invent a short stable handoff name, and notify coder.
-- When the integrator notifies you that the job is complete, ask the user for the next feature to add.
+- When the curator notifies you that the job is complete, first run the startup sync (fetch + ff-only merge), then ask the user for the next feature to add. The curator's handoff means the knowledge PR for the previous feature has already landed on master.
 - Run `agent-retro` before going idle.
