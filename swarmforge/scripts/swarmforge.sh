@@ -826,7 +826,7 @@ write_agent_instruction_file() {
   local role="$1"
   local prompt_file="$2"
   typeset -a bundle_files=()
-  local rel abs_path
+  local rel abs_path knowledge
 
   while IFS= read -r rel; do
     [[ -n "$rel" ]] && bundle_files+=("$rel")
@@ -835,12 +835,19 @@ write_agent_instruction_file() {
   {
     printf '<swarmforge_agent_context role="%s">\n' "$role"
     printf '<instructions>\n'
-    printf 'This prompt bundle is pre-resolved. Do not open or re-read any swarmforge/*.prompt files — all relevant instructions are already included below.\n'
+    printf 'This prompt bundle is pre-resolved. Do not open or re-read any swarmforge/*.prompt files — all relevant instructions are already included below. Project knowledge files (AGENTS.md and your role file under .agents/roles/) are included below when they exist; deep dives live under .agents/references/ and are read on demand when an included line points to them.\n'
     printf '</instructions>\n'
     for rel in "${bundle_files[@]}"; do
       abs_path="$WORKING_DIR/$rel"
       [[ -f "$abs_path" ]] || continue
       printf '<file path="%s">\n' "$rel"
+      cat "$abs_path"
+      printf '\n</file>\n'
+    done
+    for knowledge in "AGENTS.md" ".agents/roles/${role}.md"; do
+      abs_path="$WORKING_DIR/$knowledge"
+      [[ -f "$abs_path" ]] || continue
+      printf '<file path="%s">\n' "$knowledge"
       cat "$abs_path"
       printf '\n</file>\n'
     done
