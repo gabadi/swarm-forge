@@ -892,7 +892,7 @@ launch_role() {
       local claude_flags=""
       [[ -n "$role_model" ]]   && claude_flags+=" --model '$role_model'"
       [[ -n "$role_effort" ]]  && claude_flags+=" --effort '$role_effort'"
-      launch_cmd="export PATH='$SWARM_TOOLS_DIR:$SCRIPT_DIR':\$PATH && cd '$role_worktree' && claude${claude_flags} --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}' \"\$(cat '$prompt_file')\""
+      launch_cmd="export PATH='$SWARM_TOOLS_DIR:$SCRIPT_DIR':\$PATH && cd '$role_worktree' && claude${claude_flags} --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}'"
       ;;
     codex)
       local codex_flags=""
