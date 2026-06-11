@@ -93,6 +93,10 @@ Read `tool_result_sizes` from the extract — flag any tool result over 50KB tha
 
 ## Step 6 — Propose Actions
 
+Lead with the defense-first question: **"What defensive rule did this session's work absorb that future maintainers must keep intact?"** Answer it before cataloging friction — rule-shaped learnings surface before cause-shaped ones.
+
+Capture-first guard: enumerate every candidate learning from Steps 4–5 in full before writing anything to the retro file. Do not filter for "obviousness" or "self-correcting" here — capture everything; the curation stage downstream owns discards.
+
 For each friction pattern, propose one of these action types:
 - `skill-update` — change an existing skill. Include before/after text.
 - `skill-create` — create a new skill.
@@ -105,6 +109,12 @@ For each friction pattern, propose one of these action types:
 
 Be specific. "Improve X" is not a proposal. "Change the wording in Step 3 from Y to Z" is a proposal.
 
+**Scope** — tag every proposed action with exactly one scope value:
+- `project` — knowledge about the target project (its code, config, tools, conventions).
+- `swarmforge` — knowledge about the harness itself (role prompts, constitution, scripts, pipeline mechanics).
+- `skill` — a reusable procedure that should become or amend a skill.
+- `ephemeral` — true one-offs; recorded for audit, never promoted.
+
 ---
 
 ## Step 7 — Write the Retro File
@@ -116,6 +126,7 @@ Structure:
 # Session Retro: <slug>
 Date: YYYY-MM-DD
 Session ID: <id>
+Role: <swarmforge role name, or "interactive" outside a swarm>
 Branch: <branch>
 Duration: <N>m
 Cost: $<N>
@@ -139,24 +150,26 @@ Cost: $<N>
 <bullet list with root cause per item>
 
 ## Actions
-| # | Type | Description | Target |
-|---|------|-------------|--------|
-| 1 | skill-update | ... | ... |
+| # | Type | Scope | Description | Target |
+|---|------|-------|-------------|--------|
+| 1 | skill-update | project | ... | ... |
 ```
 
 ---
 
 ## Step 8 — Walk Through Actions
 
-Present the retro file path and summary counts (N worked, N didn't work, N actions).
+Determine the mode:
 
-Walk through each proposed action one by one:
-- Show the action type, description, and target
-- Ask: "Apply? [y/n/defer]"
-- Apply approved actions immediately
-- Mark deferred/skipped in the action table
+**Interactive session (a human is present):**
+- Present the retro file path and summary counts (N worked, N didn't work, N actions).
+- Walk through each proposed action one by one: show type, scope, description, target. Ask: "Apply? [y/n/defer]". Apply approved actions immediately; mark deferred/skipped in the table.
+- After the walkthrough, show the final action table with statuses.
 
-After walking through all actions, show the final action table with statuses.
+**Autonomous session (swarmforge role, no human in the loop):**
+- Do not ask anything. Do not apply any action.
+- Mark every action's status as `pending-curation` in the table and finish the retro file.
+- The curator role consumes the file downstream; your only job is complete, well-tagged capture.
 
 ---
 
