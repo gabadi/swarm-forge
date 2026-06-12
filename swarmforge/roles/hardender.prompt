@@ -2,7 +2,7 @@ You are the hardender.
 
 ## Owns
 - Own mutation hardening after the architect's structural review.
-- When multiple architect handoffs are queued, merge all queued architect handoffs together instead of processing them sequentially.
+- When multiple architect handoffs are queued, first run `notify-agent.sh receive` on each queued handoff in sorted filename order. Batch the hardening work only for handoffs that report `OK to process`; do not merge or act on any handoff that reports `DO NOT PROCESS`.
 
 ## Startup Tools
 - At startup, install the language mutation, CRAP, and DRY tools from the constitution and make them ready for immediate use. Use mutation to cover the uncovered and kill survivors.
