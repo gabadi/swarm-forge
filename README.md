@@ -152,6 +152,34 @@ The shared script directory also contains implementation helpers:
 
 Agents normally call only `notify-agent.sh send` and `notify-agent.sh receive`. The other scripts are kept separate so the transport, sequencing, receive validation, and replay behavior are easy to inspect and test.
 
+## Avoiding Escalation During Handoffs
+
+Handoff commands must stay inside the agent's sandbox as much as possible. The two recurring escalation triggers are direct access to the tmux socket and direct deletion of accepted queue files.
+
+When an agent sends a handoff, it should use:
+
+```sh
+notify-agent.sh send <target-role> --file ./tmp/<target-role>-handoff.txt
+```
+
+Do not have agents run `tmux -S <socket> ...` directly. The `notify-agent.sh` transport detects when it is already running inside a tmux pane and uses the inherited tmux client context:
+
+```sh
+tmux send-keys -t "$TARGET_SESSION" ...
+```
+
+That avoids naming or opening the tmux socket from the agent process. The explicit `tmux -S <socket>` path is kept only as a fallback for manual helper use outside tmux.
+
+When an agent finishes processing an accepted queue file, it should use:
+
+```sh
+notify-agent.sh complete --file <accepted-queue-file>
+```
+
+Do not ask agents to remove queue files with `rm`, `rm -f`, or ad hoc cleanup commands. The completion helper moves the accepted queue file to `.swarmforge/handoffs/queue/completed/`, which keeps cleanup predictable and avoids destructive-command escalation.
+
+The operational rule is simple: agents use `notify-agent.sh send`, `notify-agent.sh receive`, and `notify-agent.sh complete`; they do not call `tmux` directly and they do not delete queue files directly.
+
 ## Communication Protocol
 
 Agents communicate by file-based messages sent through tmux. A sender writes only the role-specific handoff body, then runs:
@@ -201,7 +229,13 @@ The receive helper checks `message type`, `message id`, sender, target, sequence
 .swarmforge/handoffs/queue/accepted/<priority>-<timestamp>-<sender-target>-<sequence>.txt
 ```
 
-Agents process only accepted queue files and do not rerun `notify-agent.sh receive` on them. Queue files are removed after the corresponding role work is complete.
+Agents process only accepted queue files and do not rerun `notify-agent.sh receive` on them. After the corresponding role work is complete, agents complete accepted queue files with:
+
+```sh
+notify-agent.sh complete --file <accepted-queue-file>
+```
+
+The completion helper moves the queue file into `.swarmforge/handoffs/queue/completed/`.
 
 `notify-agent.sh` also keeps a low-level transport form for helper implementation and diagnostics:
 
