@@ -10,6 +10,12 @@
 ## Temporary Files
 - Use `./tmp/` in your assigned worktree for temporary files; do not use `/tmp`.
 
+## Startup Notification
+- After reading the constitution and your role prompt at startup, send an awake notification to `specifier`.
+- Write exactly `I'm awake` to `./tmp/specifier-awake.txt`.
+- Write `.swarmforge/notify/request` with `command: send`, `target: specifier`, and `file: ./tmp/specifier-awake.txt`, then run `notify-agent.sh` with no arguments.
+- This startup notification is only a presence signal; it does not replace any role-specific handoff rule.
+
 ## Logbook
 - Maintain the tracked root `logbook.jsonl` file for every handoff received or sent.
 - Keep `logbook.jsonl` as append-only JSON Lines. Each line is one complete JSON object; never rewrite, reformat, sort, summarize, or merge existing entries.
