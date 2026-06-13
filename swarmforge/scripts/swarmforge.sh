@@ -294,6 +294,27 @@ check_helper_scripts() {
   done
 }
 
+install_shared_constitution_articles() {
+  local target_root="$1"
+  local target_dir="$target_root/swarmforge/constitution/articles"
+  local source_dir article target
+  local -a source_dirs
+
+  source_dirs=("$SCRIPT_DIR/shared-articles" "${SCRIPT_DIR:h}/constitution/articles")
+  mkdir -p "$target_dir"
+
+  for source_dir in "${source_dirs[@]}"; do
+    [[ -d "$source_dir" ]] || continue
+    for article in "$source_dir"/*(.N); do
+      [[ -f "$article" ]] || continue
+      target="$target_dir/${article:t}"
+      [[ "$article" == "$target" ]] && continue
+      [[ -e "$target" ]] && continue
+      cp "$article" "$target"
+    done
+  done
+}
+
 prepare_workspace() {
   mkdir -p "$STATE_DIR" "$NOTIFY_DIR" "$PROMPTS_DIR" "$WORKTREES_DIR" "$TMUX_SOCKET_DIR"
   printf '%s\n' "$TMUX_SOCKET" > "$TMUX_SOCKET_FILE"
@@ -336,6 +357,7 @@ sync_worktree_scripts() {
     role_state_dir="$worktree_path/.swarmforge"
     mkdir -p "$role_scripts_dir"
     cp -R "$SCRIPT_DIR/." "$role_scripts_dir/"
+    install_shared_constitution_articles "$worktree_path"
     mkdir -p "$role_state_dir/notify"
     cp "$SESSIONS_FILE" "$role_state_dir/sessions.tsv"
     cp "$TMUX_SOCKET_FILE" "$role_state_dir/tmux-socket"
@@ -447,6 +469,7 @@ check_dependency git
 detect_tmux_base_indexes
 initialize_git_repo
 ensure_runtime_git_excludes
+install_shared_constitution_articles "$WORKING_DIR"
 parse_config
 check_backend_dependencies
 prepare_workspace
