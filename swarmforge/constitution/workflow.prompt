@@ -11,7 +11,7 @@
 - Run `notify-agent.sh receive --file <saved-message-file>`.
 - If the helper reports `DO NOT PROCESS`, stop.
 - Process only accepted queue files created by `notify-agent.sh receive` under `.swarmforge/handoffs/queue/accepted/`.
-- After completing the required outgoing handoff, run `notify-agent.sh complete --file <accepted-queue-file>`.
+- After finishing the accepted queue file, run `notify-agent.sh complete --file <accepted-queue-file>`.
 - Do not delete accepted queue files directly.
 
 ## Cycle
