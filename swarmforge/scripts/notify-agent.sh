@@ -97,23 +97,22 @@ if [[ ! -f "$MESSAGE_FILE" ]]; then
 fi
 MESSAGE="$(< "$MESSAGE_FILE")"
 
-if [[ ! -f "$TMUX_SOCKET_FILE" ]]; then
-  echo "Tmux socket file not found: $TMUX_SOCKET_FILE" >&2
-  exit 1
-fi
+if [[ -n "${TMUX:-}" ]]; then
+  tmux send-keys -t "$TARGET_SESSION" -l -- "$MESSAGE"
+  sleep 0.15
+  tmux send-keys -t "$TARGET_SESSION" C-m
+  sleep 0.05
+  tmux send-keys -t "$TARGET_SESSION" C-j
+else
+  if [[ ! -f "$TMUX_SOCKET_FILE" ]]; then
+    echo "Tmux socket file not found: $TMUX_SOCKET_FILE" >&2
+    exit 1
+  fi
 
-TMUX_SOCKET="$(< "$TMUX_SOCKET_FILE")"
-TMUX_WINDOW_BASE_INDEX="$(tmux -S "$TMUX_SOCKET" show-options -gqv base-index 2>/dev/null || echo 0)"
-if [[ ! "$TMUX_WINDOW_BASE_INDEX" == <-> ]]; then
-  TMUX_WINDOW_BASE_INDEX=0
+  TMUX_SOCKET="$(< "$TMUX_SOCKET_FILE")"
+  tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_SESSION" -l -- "$MESSAGE"
+  sleep 0.15
+  tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_SESSION" C-m
+  sleep 0.05
+  tmux -S "$TMUX_SOCKET" send-keys -t "$TARGET_SESSION" C-j
 fi
-TMUX_PANE_BASE_INDEX="$(tmux -S "$TMUX_SOCKET" show-window-options -gqv pane-base-index 2>/dev/null || echo 0)"
-if [[ ! "$TMUX_PANE_BASE_INDEX" == <-> ]]; then
-  TMUX_PANE_BASE_INDEX=0
-fi
-
-tmux -S "$TMUX_SOCKET" send-keys -t "${TARGET_SESSION}:${TMUX_WINDOW_BASE_INDEX}.${TMUX_PANE_BASE_INDEX}" -l -- "$MESSAGE"
-sleep 0.15
-tmux -S "$TMUX_SOCKET" send-keys -t "${TARGET_SESSION}:${TMUX_WINDOW_BASE_INDEX}.${TMUX_PANE_BASE_INDEX}" C-m
-sleep 0.05
-tmux -S "$TMUX_SOCKET" send-keys -t "${TARGET_SESSION}:${TMUX_WINDOW_BASE_INDEX}.${TMUX_PANE_BASE_INDEX}" C-j
