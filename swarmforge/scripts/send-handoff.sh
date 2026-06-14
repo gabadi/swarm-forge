@@ -107,7 +107,7 @@ PROJECT_DIR="$(handoff_project_dir)"
 TARGET_AGENT="$(handoff_agent_type "$PROJECT_DIR" "$TARGET" 2>/dev/null || echo 'unknown')"
 
 if [[ "$TARGET_AGENT" != "claude" ]]; then
-  notify-agent.sh "$TARGET" --file "$ARCHIVE_FILE"
+  swarm-handoff "$TARGET" --file "$ARCHIVE_FILE"
 else
   PENDING_DIR="$(handoff_pending_dir "$PROJECT_DIR" "$TARGET")"
   mkdir -p "$PENDING_DIR"
