@@ -57,7 +57,7 @@ In the directory where you want to use SwarmForge, choose a runnable branch and 
 
 ```sh
 BRANCH=four-pack
-curl -L "https://github.com/unclebob/swarm-forge/archive/refs/heads/${BRANCH}.tar.gz" | tar -xz --strip-components=1
+curl -L "https://github.com/gabadi/swarm-forge/archive/refs/heads/${BRANCH}.tar.gz" | tar -xz --strip-components=1
 ```
 
 Use `BRANCH=six-pack` instead when you want the six-agent workflow. Do not use `main` for this command; `main` is documentary and stores the shared operational scripts, while the runnable branches provide the configurations and prompts intended for projects.
