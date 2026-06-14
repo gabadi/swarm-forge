@@ -17,13 +17,6 @@ The marker is set *busy* when a delivery starts and *idle* when the Stop hook fi
 
 **Re-injection is universal.** `/clear` wipes the session regardless of backend, so the role bundle is always re-sent after `/clear`.
 
-**Claude Code first.** Both the marker and the delivery ride Claude Code's hook system (the Stop hook). The fork's delivery replaces upstream's immediate terminal-typing only for the roles it manages. The `claude` backend is supported now; roles on `codex`/`grok` keep upstream's delivery until their hook-based equivalent is built — **pending implementation**.
+**Delivery engine.** The central `swarm-handoff` script handles queueing, busy checking, and backend-aware delivery. The engine writes every outgoing message to a pending queue, checks the busy marker, and either delivers immediately (idle) or exits and lets the Stop hook drain the queue later (busy). The delivery path is backend-aware: for `claude` roles, `/clear` + re-inject is sent before the handoff body; for other backends, the handoff is delivered directly until their own clear-first mechanism is built.
 
 Ready is implicit (idle + empty queue = ready). Upstream's startup "I'm awake" ping is kept only as an operator-visible **presence** signal — stamped a distinct `presence` type and excluded from the clear-first path, so the Stop hook never clears for it.
-
-**Session-restart recovery.** The idle/busy marker records *whether* a role is working, not *what* it is working on. So the `executing` logbook entry carries the in-flight task itself — `{message, hash, sender}`: the handoff message being acted on, the commit hash it started from, and who sent it. If a role's session dies and is restarted mid-task, that is enough to resume the task rather than lose it along with the handoff. (Upstream's `executing` entry records no such context.) These fields live inside the delivery and Stop-hook scripts, so they re-base on the prompt bundle of ADR 0017.
-
-## Pending implementation
-
-- `codex`/`grok` hook-based delivery (Claude Code first). The current `six-pack` `swarmforge.conf` runs all six roles on `codex`, so until that is built — or those roles move to `claude` — clear-first delivery applies only to `claude` roles. The `claude`/`codex` choice is a per-role configuration knob (ADR 0012), not an architectural decision; no `codex` hook work is required for this ADR to stand.
-- Add the `{message, hash, sender}` fields to the `executing` logbook entry written in the delivery script and the Stop hook, re-based onto the ADR 0017 bundle delivery. Source: `feat/main-executing-context-fields` commit `a133c71`.

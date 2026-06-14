@@ -102,25 +102,7 @@ EOF
 ARCHIVE_FILE="$(handoff_temp_file "send-handoff")"
 printf '%s' "$MESSAGE" > "$ARCHIVE_FILE"
 handoff_archive_sent "$STREAM" "$SEQUENCE" "$MESSAGE"
-
-PROJECT_DIR="$(handoff_project_dir)"
-TARGET_AGENT="$(handoff_agent_type "$PROJECT_DIR" "$TARGET" 2>/dev/null || echo 'unknown')"
-
-if [[ "$TARGET_AGENT" != "claude" ]]; then
-  swarm-handoff "$TARGET" --file "$ARCHIVE_FILE"
-else
-  PENDING_DIR="$(handoff_pending_dir "$PROJECT_DIR" "$TARGET")"
-  mkdir -p "$PENDING_DIR"
-  PENDING_FILE="$PENDING_DIR/${MESSAGE_PRIORITY}-$(handoff_id_timestamp)-${STREAM}-${SEQUENCE}.txt"
-  printf '%s' "$MESSAGE" > "$PENDING_FILE"
-
-  BUSY_FILE="$(handoff_busy_file "$PROJECT_DIR" "$TARGET")"
-  if ( set -C; > "$BUSY_FILE" ) 2>/dev/null; then
-    handoff_clear_first_deliver "$PROJECT_DIR" "$TARGET" "$PENDING_FILE"
-    rm -f "$PENDING_FILE"
-  fi
-fi
-
+swarm-handoff "$TARGET" --file "$ARCHIVE_FILE"
 handoff_append_logbook "sent" "$MESSAGE" "$MESSAGE_TYPE $MESSAGE_ID sent to $TARGET"
 
 echo "Sent $MESSAGE_ID"
