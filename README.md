@@ -268,7 +268,7 @@ The sender archives each outbound message under:
 .swarmforge/handoffs/sent/<sender-target>/<sequence>.txt
 ```
 
-After the low-level tmux send succeeds, the sender appends a `sent` entry to `logbook.jsonl`. If the tmux notification fails, the message remains archived for possible manual recovery, but no `sent` logbook entry is written.
+After the low-level tmux send succeeds, the sender appends a `sent` entry to `.swarmforge/logbook.jsonl`. If the tmux notification fails, the message remains archived for possible manual recovery, but no `sent` logbook entry is written.
 
 When an agent receives a message, it saves the complete incoming text to a file and runs:
 
@@ -281,7 +281,7 @@ Then it runs `swarm-handoff`.
 
 The receive helper ignores any leading terminal noise before the first valid `message type: handoff` or `message type: resend-request` header. It archives and queues only the normalized protocol message, not the noisy capture.
 
-The receive helper checks `message type`, `message id`, sender, target, sequence, and priority. If a handoff is valid and in order, it archives the message, appends a `received` entry to `logbook.jsonl`, updates the last processed sequence for that sender-target stream, copies the handoff into the accepted queue, and prints the queued file path:
+The receive helper checks `message type`, `message id`, sender, target, sequence, and priority. If a handoff is valid and in order, it archives the message, appends a `received` entry to `.swarmforge/logbook.jsonl`, updates the last processed sequence for that sender-target stream, copies the handoff into the accepted queue, and prints the queued file path:
 
 ```text
 .swarmforge/handoffs/queue/accepted/<priority>-<timestamp>-<sender-target>-<sequence>.txt
@@ -306,6 +306,8 @@ swarm-handoff <target-role-or-index> --file <message-file>
 ```
 
 Agents should not use the low-level target/file transport form for normal handoffs because it bypasses sequencing, archiving, resend recovery, and logbook handling. Agents should prefer the no-argument request-file form over explicit subcommands to keep command approvals stable.
+
+Handoff logbooks are runtime state under `.swarmforge/logbook.jsonl`. Agents should not edit, merge, stage, or commit them. Use the handoff archives and generated logbook for local diagnostics only.
 
 ## Recovery Strategy
 

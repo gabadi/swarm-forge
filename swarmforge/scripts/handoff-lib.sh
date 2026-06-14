@@ -30,7 +30,9 @@ handoff_temp_file() {
 }
 
 handoff_logbook_file() {
-  echo "$PWD/logbook.jsonl"
+  local dir="$PWD/.swarmforge"
+  mkdir -p "$dir"
+  echo "$dir/logbook.jsonl"
 }
 
 handoff_timestamp() {
