@@ -221,6 +221,8 @@ This stable command shape is intentional. Some command approval systems approve 
 
 If `swarm-handoff` requires escalation, the agent should request reusable approval for the exact command prefix `["swarm-handoff"]`. Do not use `SWARMFORGE_ROLE=<role> swarm-handoff`, `./swarm-handoff`, an absolute path, `zsh -c swarm-handoff`, redirection, or a wrapper command for normal handoffs; those forms can prevent the approval UI from offering a reusable prefix for the stable handoff command.
 
+`swarm-handoff` is the executable command, not a request file. Never write, redirect, append, or pipe handoff content to `swarm-handoff` or `./swarm-handoff`; commands like `printf ... > ./swarm-handoff` can replace the helper script. Agents write request content only to `.swarmforge/notify/request` and message content only to `./tmp/<target-role>-handoff.txt` or the explicit incoming-message file named in the receive procedure.
+
 Do not have agents run `tmux -S <socket> ...` directly. The `swarm-handoff` transport detects when it is already running inside a tmux pane and uses the inherited tmux client context:
 
 ```sh
