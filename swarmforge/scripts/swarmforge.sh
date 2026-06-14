@@ -362,7 +362,7 @@ prepare_worktrees() {
     if [[ ! -e "$worktree_path/.git" && ! -d "$worktree_path/.git" ]]; then
       git -C "$WORKING_DIR" worktree add --force -B "$branch_name" "$worktree_path" HEAD >/dev/null
     fi
-    write_worktree_permissions "$worktree_path"
+    write_worktree_settings "$worktree_path"
 
     if [[ "$role" != "specifier" && "$role" != "QA" ]]; then
       git -C "$worktree_path" sparse-checkout init --no-cone >/dev/null 2>&1
@@ -417,28 +417,10 @@ create_role_session() {
   tmux -S "$TMUX_SOCKET" set-window-option -t "$session:$title" allow-rename off
 }
 
-write_worktree_permissions() {
-  local worktree_path="$1"
-  local settings_dir="$worktree_path/.claude"
-  local settings_file="$settings_dir/settings.local.json"
-
-  mkdir -p "$settings_dir"
-  SETTINGS_FILE="$settings_file" python3 -c '
-import json, os
-p = os.environ["SETTINGS_FILE"]
-cfg = {}
-try:
-  with open(p) as f: cfg = json.load(f)
-except: pass
-cfg["autoCompactEnabled"] = True
-cfg.setdefault("env", {})
-cfg["env"]["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = "88"
-cfg["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = "200000"
-with open(p, "w") as f: json.dump(cfg, f, indent=2)
-  '
-}
-
-write_worktree_advisor() {
+# Single read-modify-write over a worktree's .claude/settings.local.json. Always
+# applies the ADR 0020 auto-compaction keys; also sets the ADR 0012 advisor model
+# when a non-empty one is passed. One shared writer for both concerns (ADR 0020).
+write_worktree_settings() {
   local worktree_path="$1"
   local advisor_model="$2"
   local settings_dir="$worktree_path/.claude"
@@ -452,7 +434,13 @@ cfg = {}
 try:
   with open(p) as f: cfg = json.load(f)
 except: pass
-cfg["advisorModel"] = os.environ["ADVISOR_MODEL"]
+cfg["autoCompactEnabled"] = True
+cfg.setdefault("env", {})
+cfg["env"]["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = "88"
+cfg["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = "200000"
+advisor = os.environ.get("ADVISOR_MODEL", "")
+if advisor:
+  cfg["advisorModel"] = advisor
 with open(p, "w") as f: json.dump(cfg, f, indent=2)
   '
 }
@@ -548,7 +536,7 @@ launch_role() {
   local role_advisor="${ROLE_ADVISORS[$index]}"
 
   write_agent_instruction_file "$role" "$prompt_file"
-  [[ -n "$role_advisor" ]] && write_worktree_advisor "$role_worktree" "$role_advisor"
+  [[ -n "$role_advisor" ]] && write_worktree_settings "$role_worktree" "$role_advisor"
 
   if [[ "$role_worktree" == "$WORKING_DIR" ]]; then
     role_script_dir="$SCRIPT_DIR"
