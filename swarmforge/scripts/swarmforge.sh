@@ -110,30 +110,18 @@ ensure_initial_gitignore() {
     cat > "$gitignore_file" <<'EOF'
 .swarmforge/
 .worktrees/
-logbook.jsonl
-tmp/
 EOF
     return
   fi
 
-  local pattern
-  for pattern in '.swarmforge/' '.worktrees/' 'logbook.jsonl' 'tmp/'; do
-    if ! grep -qx "$pattern" "$gitignore_file"; then
-      echo "$pattern" >> "$gitignore_file"
-    fi
-  done
-}
-
-remove_nonessential_clone_files() {
-  if [[ "${WORKING_DIR:t}" == "swarm-forge" ]]; then
-    return
+  if ! grep -qx '.swarmforge/' "$gitignore_file"; then
+    echo '.swarmforge/' >> "$gitignore_file"
   fi
 
-  if [[ -d "$STATE_DIR" ]]; then
-    return
+  if ! grep -qx '.worktrees/' "$gitignore_file"; then
+    echo '.worktrees/' >> "$gitignore_file"
   fi
 
-  rm -rf "$WORKING_DIR/examples"
 }
 
 ensure_runtime_git_excludes() {
@@ -143,7 +131,7 @@ ensure_runtime_git_excludes() {
   touch "$exclude_file"
 
   local pattern
-  for pattern in ".swarmforge/" ".worktrees/" "logbook.jsonl" "tmp/"; do
+  for pattern in ".swarmforge/" ".worktrees/"; do
     if ! grep -qx "$pattern" "$exclude_file"; then
       echo "$pattern" >> "$exclude_file"
     fi
@@ -569,25 +557,25 @@ launch_role() {
   case "$agent" in
     claude)
       local claude_flags=""
-      [[ -n "$role_model" ]]  && claude_flags+=" --model '$role_model'"
-      [[ -n "$role_effort" ]] && claude_flags+=" --effort '$role_effort'"
+      [[ -n "$role_model" ]]  && claude_flags+=" --model ${(q)role_model}"
+      [[ -n "$role_effort" ]] && claude_flags+=" --effort ${(q)role_effort}"
       launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && claude${claude_flags} --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}' \"\$(cat '$prompt_file')\""
       ;;
     codex)
       local codex_flags=""
-      [[ -n "$role_model" ]] && codex_flags+=" -c model='$role_model'"
+      [[ -n "$role_model" ]] && codex_flags+=" -c model=${(q)role_model}"
       launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && codex${codex_flags} -C '$role_worktree' \"\$(cat '$prompt_file')\""
       ;;
     copilot)
       local copilot_flags=""
-      [[ -n "$role_model" ]]  && copilot_flags+=" --model '$role_model'"
-      [[ -n "$role_effort" ]] && copilot_flags+=" --effort '$role_effort'"
+      [[ -n "$role_model" ]]  && copilot_flags+=" --model ${(q)role_model}"
+      [[ -n "$role_effort" ]] && copilot_flags+=" --effort ${(q)role_effort}"
       launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && copilot${copilot_flags} -C '$role_worktree' --name 'SwarmForge ${display}' -i \"\$(cat '$prompt_file')\""
       ;;
     grok)
       local grok_flags=""
-      [[ -n "$role_model" ]]  && grok_flags+=" --model '$role_model'"
-      [[ -n "$role_effort" ]] && grok_flags+=" --effort '$role_effort'"
+      [[ -n "$role_model" ]]  && grok_flags+=" --model ${(q)role_model}"
+      [[ -n "$role_effort" ]] && grok_flags+=" --effort ${(q)role_effort}"
       launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && grok${grok_flags} --cwd '$role_worktree' --permission-mode auto --rules \"\$(cat '$prompt_file')\""
       ;;
   esac
@@ -667,7 +655,6 @@ choose_cleanup_owner() {
 check_dependency tmux
 check_dependency git
 detect_tmux_base_indexes
-remove_nonessential_clone_files
 initialize_git_repo
 ensure_runtime_git_excludes
 install_shared_constitution_articles "$WORKING_DIR"
