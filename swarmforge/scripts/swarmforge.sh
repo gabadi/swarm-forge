@@ -597,6 +597,57 @@ launch_role() {
   echo -e "  ${CYAN}[${display}]${RESET} started in session ${session}"
 }
 
+install_skills() {
+  local skills_src="$SCRIPT_DIR/../skills"
+  local skills_dst="$WORKING_DIR/.claude/skills"
+  local pins_file="$SCRIPT_DIR/install-pins.conf"
+
+  [[ ! -f "$pins_file" ]] && return 0
+  # shellcheck source=/dev/null
+  source "$pins_file"
+
+  echo -e "${CYAN}Installing skills...${RESET}"
+  mkdir -p "$skills_dst"
+
+  if [[ -d "$skills_src/agent-retro" ]]; then
+    rm -rf "$skills_dst/agent-retro"
+    cp -R "$skills_src/agent-retro" "$skills_dst/agent-retro"
+    echo -e "  ${GREEN}✓${RESET} agent-retro"
+  else
+    echo -e "  ${YELLOW}⚠${RESET} agent-retro not found at $skills_src/agent-retro — skipping"
+  fi
+
+  local tmp_skills
+  tmp_skills="$(mktemp -d)"
+  local entire_url="https://github.com/entireio/skills/archive/${ENTIRE_SKILLS_SHA}.tar.gz"
+  if curl -fsSL "$entire_url" | tar -xz --strip-components=1 -C "$tmp_skills" 2>/dev/null; then
+    for skill_dir in "$tmp_skills/skills"/*/; do
+      local skill_name
+      skill_name="$(basename "$skill_dir")"
+      rm -rf "$skills_dst/$skill_name"
+      cp -R "$skill_dir" "$skills_dst/$skill_name"
+    done
+    rm -rf "$tmp_skills"
+    echo -e "  ${GREEN}✓${RESET} entire skills (${ENTIRE_SKILLS_SHA:0:8})"
+    printf '%s\n' "$ENTIRE_SKILLS_SHA" > "$STATE_DIR/skills-installed"
+  else
+    rm -rf "$tmp_skills"
+    echo -e "  ${YELLOW}⚠${RESET} entire skills unavailable (no network?) — proceeding without them"
+  fi
+}
+
+ensure_skills_installed() {
+  local pins_file="$SCRIPT_DIR/install-pins.conf"
+  [[ ! -f "$pins_file" ]] && return 0
+  # shellcheck source=/dev/null
+  source "$pins_file"
+  local installed_sentinel="$STATE_DIR/skills-installed"
+  if [[ -f "$installed_sentinel" ]] && [[ "$(< "$installed_sentinel")" == "$ENTIRE_SKILLS_SHA" ]]; then
+    return 0
+  fi
+  install_skills
+}
+
 choose_cleanup_owner() {
   CLEANUP_OWNER_INDEX=1
 }
@@ -609,6 +660,7 @@ ensure_runtime_git_excludes
 install_shared_constitution_articles "$WORKING_DIR"
 parse_config
 check_backend_dependencies
+ensure_skills_installed
 prepare_workspace
 prepare_worktrees
 choose_cleanup_owner
