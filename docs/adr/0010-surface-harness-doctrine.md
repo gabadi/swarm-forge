@@ -18,8 +18,11 @@ This is the reference verification loop's execute-and-observe layer (its Steps 5
 
 **QA verifies through the declared surface harness, not "the UI" (idea Q).** Upstream QA's "operate through the user interface only" was right in intent but mechanically silent — it let in-process function calls masquerade as UI verification. The fork replaces the phrase with "through the declared surface harness," and adds an auditable conversion rule: **every Expected bullet maps to a harness assertion, or is explicitly marked `NOT AUTOMATED — <reason>`.** This is the mechanism that makes the conversion-fidelity guard of ADR 0005 checkable rather than a matter of QA's word — a silently dropped bullet becomes a visible marker. Findings route back per ADR 0004.
 
+**The hardener pins pure rendering with property tests.** Where rendering is a pure function of state (`state → string`), the hardener writes property-based tests over that function — the structural complement to the UX Engineer's golden snapshots and rendering invariants. A snapshot pins one concrete state's output; a property pins the rule across the input space (every state renders without truncation, every cell stays within bounds), catching the rendering defects that no single captured frame happens to exhibit.
+
 ## Pending implementation
 
 - Add the surface tool table + context-driven acquisition rule to `engineering.prompt` on `four-pack` and `six-pack`.
 - Change QA's "through the UI only" to "through the declared surface harness" and add the Expected-bullet → assertion / `NOT AUTOMATED` rule in `QA.prompt` (both packs).
 - Require the per-surface baseline scenario to be committed with every feature's flow scenarios.
+- `six-pack`: add the rendering-invariant property-test rule for pure rendering functions to `hardender.prompt`. Source: recover from `backup/six-pre-reset`.

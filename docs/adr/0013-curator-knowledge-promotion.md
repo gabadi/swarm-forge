@@ -18,8 +18,11 @@ Upstream ends the line at QA: the specifier merges and asks for the next feature
 
 **Loop health is self-reported.** Each PR body carries running totals (`promoted | rejected | upstream | ephemeral`). Kill criterion: fewer than three promotions that survive contact with later sessions over 90 days → disable the curator window; the ledger and promoted docs stay.
 
+**Retros are captured automatically, from the transcript, before idle.** The loop only has something to promote because every role runs `agent-retro` as its last step before going idle — a line added to every role prompt — so a retro is produced for each role-session with no one asking. The skill reconstructs the session from its transcript rather than the role's from-memory account: it extracts via the `entire` CLI (`entire session current` → `session info --transcript`), falling back to Claude Code's `~/.claude/projects/` transcript path when `entire` is absent. Grounding the retro in the transcript is what lets the curator (and `retro-triage`, ADR 0021) judge against what actually happened, not what the role remembers happening.
+
 ## Pending implementation
 
 - `six-pack` then `four-pack`: new `curator` role prompt; `swarmforge.conf` gains the curator window (last); rewire — integrator notifies the curator, specifier waits on the curator before the next feature, `workflow.prompt` documents the integrator→curator→specifier chain.
 - `main`: upgrade the `agent-retro` skill — scope tag on every action, capture-first (no pre-filter), and an autonomous mode that marks actions `pending-curation` without prompting a human.
+- `main`: `agent-retro` transcript capture (`entire session current` → `session info --transcript`, with the `~/.claude/projects/` fallback); add the "run `agent-retro` before going idle" line to every role prompt. Source: `feat/issue-20-a-retro-skill-upgrade`.
 - Pairs with ADR 0014 (the `.agents/` contract the curator writes and the launcher injects).

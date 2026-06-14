@@ -16,9 +16,17 @@ _Avoid_: awake handoff, ready handoff
 The steps that start a work handoff on a receiver: `/clear` → re-inject the role bundle → send the task message. Runs for work handoffs only, never for presence pings. Delivered immediately if the receiver is idle, or by its Stop hook when it next stops if busy. (Upstream instead types the message straight into the terminal with no clear.)
 _Avoid_: inject, dispatch
 
-**Setup skill**:
-The one-time, stack-aware step that makes a project swarm-ready — installs the project's language quality tools, enables session tracking, grants the agents' permissions, pins skill versions. Ships inside the swarm install and is the first thing the operator runs. The run path (`./swarm`) does no project setup; it stops if the skill has not run. (Upstream instead installs tooling per-role at startup.)
-_Avoid_: preflight, bootstrap, onboarding
+**Prompt bundle** (role bundle):
+The single, structured context a role launches and re-launches with: its constitution and role prompt resolved into one deduplicated XML envelope, into which _promoted knowledge_ (`AGENTS.md` + the role's `.agents/` file) is also injected. It is the unit re-sent on every _delivery sequence_ after `/clear`, not just built once at launch. (Upstream concatenates the prompt files with a plain recursive read, with no dedup or structure.)
+_Avoid_: context blob, prompt file, instruction file
+
+**setup-swarm** (the skill):
+The one-time, stack-aware step that makes a project swarm-ready — installs the project's language quality tools, enables session tracking, grants the agents' permissions, pins skill versions, and emits the _swarm-ready marker_. Ships inside the swarm install. **It is the operator's first action on a project** (`/setup-swarm`), before the run path is ever invoked. The run path (`./swarm`) performs no **project provisioning** and never triggers the skill itself; it only **guards** — if the marker is absent it refuses and tells the operator to run `setup-swarm` first. (It still bootstraps the swarm's *own* runtime skills automatically — launcher infrastructure, distinct from project provisioning.) (Upstream instead installs tooling per-role at startup.)
+_Avoid_: setup skill, preflight, bootstrap, onboarding
+
+**Swarm-ready marker**:
+The file (`.swarmforge/setup-complete`) that `setup-swarm` writes to record that a project has been made swarm-ready. The run path guards on its presence; the operator deletes it to force a re-run. There is no `./swarm setup` subcommand.
+_Avoid_: setup flag, ready file, lock
 
 **Integrator**:
 The terminal role that lands finished work. From the QA-approved commit it opens a pull request, gates on CI, merges only on green, runs the post-merge verification, and notifies the specifier — one PR per feature. It never merges locally: CI is a hard precondition, so a project without CI is not swarm-ready (setup ensures CI; see [[project-fork-divergence-adr-structure]] / ADR 0003). CI failures route to the owning role via [[back-routing]]. (Upstream has no integrator — the specifier merges ad hoc.)
@@ -79,3 +87,11 @@ _Avoid_: docs, memory, knowledge base
 **Knowledge ledger**:
 `.agents/ledger.md` — the append-only audit the _curator_ writes, one never-pruned line per processed retro item (`date | session-id | role | failure-class | verdict`). Makes recurrence provable: an item rejected before and seen again has proven itself worth promoting.
 _Avoid_: changelog, history, log
+
+**Session retro**:
+The single per-role, per-session retrospective the `agent-retro` skill writes (automatically, as each role's last step before idle) to the shared retro pool. A symptom report from one role's one session under a keyhole view — its proposed fixes are hints, never findings. The shared input consumed independently by both the _curator_ and _retro-triage_; neither destroys what the other has not yet seen.
+_Avoid_: retrospective, session log, postmortem
+
+**Retro-triage**:
+The operator-invoked analysis (the `retro-triage` skill) that turns a *batch* of _session retros_ into a validated, cross-session **root-cause diagnosis** from which a human files issues. Distinct from the _curator_: the curator is autonomous and per-item and fixes "the swarm doesn't *know* X" by promoting agent-facing knowledge into the repo; retro-triage is manual and cross-batch and fixes "the swarm is *structurally doing* X wrong" by surfacing causes no single retro names (and that the per-item curator structurally cannot see) for pipeline/tooling/strategy changes a human must make. Diagnosis is the product, validated against transcripts and git artifacts — not the retros' own framing.
+_Avoid_: triage, consolidation, retro processing
