@@ -10,6 +10,11 @@
 - `swarm-handoff` maintains `.swarmforge/logbook.jsonl` as runtime state.
 - Do not hand-edit, merge, stage, or commit handoff logbooks unless explicit user direction says to repair runtime state manually.
 
+## Command Approval
+- Run handoffs exactly as `swarm-handoff` with no arguments after writing `.swarmforge/notify/request`.
+- Do not run `SWARMFORGE_ROLE=<role> swarm-handoff`, `./swarm-handoff`, an absolute path to `swarm-handoff`, `zsh -c swarm-handoff`, or any redirection/wrapper form for normal handoffs.
+- If `swarm-handoff` needs escalation, request reusable approval for the command prefix `["swarm-handoff"]`.
+
 ## Handoff Format
 - For every outgoing handoff, write only the role-specific handoff body to `./tmp/<target-role>-handoff.txt`.
 - To send that handoff, write `.swarmforge/notify/request` with `command: send`, `target: <target-role>`, and `file: ./tmp/<target-role>-handoff.txt`, then run `swarm-handoff` with no arguments.
