@@ -298,7 +298,7 @@ write_sessions_file() {
 
 check_helper_scripts() {
   local helper
-  for helper in notify-agent.sh send-handoff.sh receive-handoff.sh resend-handoff.sh complete-handoff.sh handoff-lib.sh swarm-cleanup.sh swarm-window-watchdog.sh swarm-terminal-adapter.sh; do
+  for helper in notify-agent.sh send-handoff.sh receive-handoff.sh resend-handoff.sh complete-handoff.sh handoff-lib.sh swarm-cleanup.sh swarm-stop.sh swarm-window-watchdog.sh swarm-terminal-adapter.sh; do
     if [[ ! -x "$SCRIPT_DIR/$helper" ]]; then
       echo -e "${RED}Error:${RESET} Required helper script not found or not executable: $SCRIPT_DIR/$helper"
       exit 1
@@ -422,12 +422,13 @@ create_role_session() {
 # when a non-empty one is passed. One shared writer for both concerns (ADR 0020).
 write_worktree_settings() {
   local worktree_path="$1"
-  local advisor_model="$2"
+  local advisor_model="${2:-}"
+  local stop_script="${3:-}"
   local settings_dir="$worktree_path/.claude"
   local settings_file="$settings_dir/settings.local.json"
 
   mkdir -p "$settings_dir"
-  SETTINGS_FILE="$settings_file" ADVISOR_MODEL="$advisor_model" python3 -c '
+  SETTINGS_FILE="$settings_file" ADVISOR_MODEL="$advisor_model" STOP_SCRIPT="$stop_script" python3 -c '
 import json, os
 p = os.environ["SETTINGS_FILE"]
 cfg = {}
@@ -441,6 +442,10 @@ cfg["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = "200000"
 advisor = os.environ.get("ADVISOR_MODEL", "")
 if advisor:
   cfg["advisorModel"] = advisor
+stop = os.environ.get("STOP_SCRIPT", "")
+if stop:
+  cfg.setdefault("hooks", {})
+  cfg["hooks"]["Stop"] = [{"matcher": "", "hooks": [{"type": "command", "command": stop}]}]
 with open(p, "w") as f: json.dump(cfg, f, indent=2)
   '
 }
@@ -536,7 +541,6 @@ launch_role() {
   local role_advisor="${ROLE_ADVISORS[$index]}"
 
   write_agent_instruction_file "$role" "$prompt_file"
-  [[ -n "$role_advisor" ]] && write_worktree_settings "$role_worktree" "$role_advisor"
 
   if [[ "$role_worktree" == "$WORKING_DIR" ]]; then
     role_script_dir="$SCRIPT_DIR"
@@ -544,23 +548,27 @@ launch_role() {
 
   case "$agent" in
     claude)
+      write_worktree_settings "$role_worktree" "$role_advisor" "$role_script_dir/swarm-stop.sh"
       local claude_flags=""
       [[ -n "$role_model" ]]  && claude_flags+=" --model ${(q)role_model}"
       [[ -n "$role_effort" ]] && claude_flags+=" --effort ${(q)role_effort}"
-      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && claude${claude_flags} --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}' \"\$(cat '$prompt_file')\""
+      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && claude${claude_flags} --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}'"
       ;;
     codex)
+      [[ -n "$role_advisor" ]] && write_worktree_settings "$role_worktree" "$role_advisor"
       local codex_flags=""
       [[ -n "$role_model" ]] && codex_flags+=" -c model=${(q)role_model}"
       launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && codex${codex_flags} -C '$role_worktree' \"\$(cat '$prompt_file')\""
       ;;
     copilot)
+      [[ -n "$role_advisor" ]] && write_worktree_settings "$role_worktree" "$role_advisor"
       local copilot_flags=""
       [[ -n "$role_model" ]]  && copilot_flags+=" --model ${(q)role_model}"
       [[ -n "$role_effort" ]] && copilot_flags+=" --effort ${(q)role_effort}"
       launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && copilot${copilot_flags} -C '$role_worktree' --name 'SwarmForge ${display}' -i \"\$(cat '$prompt_file')\""
       ;;
     grok)
+      [[ -n "$role_advisor" ]] && write_worktree_settings "$role_worktree" "$role_advisor"
       local grok_flags=""
       [[ -n "$role_model" ]]  && grok_flags+=" --model ${(q)role_model}"
       [[ -n "$role_effort" ]] && grok_flags+=" --effort ${(q)role_effort}"

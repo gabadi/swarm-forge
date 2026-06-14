@@ -57,10 +57,11 @@ Receives JSON on stdin from Claude Code (`session_id`, `cwd`, `hook_event_name`)
 
 1. Read `SWARMFORGE_ROLE`; if unset, exit 0 (not a swarmforge role)
 2. Derive `project_dir` from `cwd` field in stdin JSON (or git fallback)
-3. Atomically create `.busy` marker (`noclobber`); if it already exists, exit 0
-4. Re-check pending queue (closes "went idle just as sender queued" race)
-5. If queue non-empty: pick oldest file (sort by name → priority+timestamp), write `executing` logbook entry to `$PWD/logbook.jsonl` (receiver's worktree is `$PWD`), call `handoff_clear_first_deliver`, remove pending file, exit 0 (marker stays = busy)
-6. If queue empty: delete `.busy` marker (role goes idle), exit 0
+3. Re-check pending queue — **do NOT noclobber here** (in the normal busy-path the marker is already set from the delivery that started this task; noclobber would cause the hook to bail and never drain the queue)
+4. If queue non-empty: `touch .busy` (ensure busy, idempotent), write `executing` logbook entry to `$PWD/logbook.jsonl` (hook runs in receiver's worktree), call `handoff_clear_first_deliver`, remove pending file, exit 0 (marker stays = busy)
+5. If queue empty: delete `.busy` marker (role goes idle), exit 0
+
+The ADR's "re-check before declaring idle" race closure: between the `ls` returning empty and the `rm .busy`, a sender may have written to the pending dir. That sender's `noclobber` wins (`.busy` was just deleted) and delivers immediately. No message is lost.
 
 ## Settings Wiring (`write_worktree_settings`)
 
@@ -98,5 +99,5 @@ Upstream's startup "I'm awake" ping uses `message type: presence`. The Stop hook
 4. `send-handoff.sh` non-claude — codex target: no pending file, `notify-agent.sh` called directly
 5. `swarm-stop.sh` queue non-empty — pending file present: executing entry written to logbook, delivery called, pending file removed, `.busy` stays
 6. `swarm-stop.sh` queue empty — no pending file: `.busy` deleted
-7. `swarm-stop.sh` already busy — `.busy` pre-exists: hook exits immediately, no delivery
+7. `swarm-stop.sh` with queue non-empty AND `.busy` already set (normal busy-path case) — hook delivers, does NOT bail on pre-existing marker
 8. `write_worktree_settings` with stop_script — resulting JSON has `hooks.Stop` entry with correct command

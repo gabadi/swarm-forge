@@ -169,3 +169,130 @@ handoff_queue_accepted() {
   printf '%s' "$message" > "$file"
   echo "$file"
 }
+
+handoff_project_dir() {
+  local git_common_dir candidate
+
+  if git_common_dir=$(git -C "$PWD" rev-parse --git-common-dir 2>/dev/null); then
+    if [[ "$git_common_dir" != /* ]]; then
+      git_common_dir="$(cd "$PWD/$git_common_dir" && pwd)"
+    fi
+    candidate="${git_common_dir:h}"
+    if [[ -f "$candidate/.swarmforge/sessions.tsv" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  fi
+
+  echo "$PWD"
+}
+
+handoff_project_dir_from() {
+  local start="$1"
+  local git_common_dir candidate
+
+  if git_common_dir=$(git -C "$start" rev-parse --git-common-dir 2>/dev/null); then
+    if [[ "$git_common_dir" != /* ]]; then
+      git_common_dir="$(cd "$start/$git_common_dir" && pwd)"
+    fi
+    candidate="${git_common_dir:h}"
+    if [[ -f "$candidate/.swarmforge/sessions.tsv" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  fi
+
+  echo "$start"
+}
+
+handoff_pending_dir() {
+  local project_dir="$1"
+  local role="$2"
+  echo "$project_dir/.swarmforge/handoffs/queue/pending/$role"
+}
+
+handoff_busy_file() {
+  local project_dir="$1"
+  local role="$2"
+  echo "$project_dir/.swarmforge/$role.busy"
+}
+
+handoff_agent_type() {
+  local project_dir="$1"
+  local role="$2"
+  local sessions_file="$project_dir/.swarmforge/sessions.tsv"
+  local idx r session display agent
+
+  [[ -f "$sessions_file" ]] || return 1
+  while IFS=$'\t' read -r idx r session display agent; do
+    if [[ "${r:l}" == "${role:l}" ]]; then
+      echo "$agent"
+      return 0
+    fi
+  done < "$sessions_file"
+  return 1
+}
+
+handoff_clear_first_deliver() {
+  local project_dir="$1"
+  local role="$2"
+  local message_file="$3"
+
+  local sessions_file="$project_dir/.swarmforge/sessions.tsv"
+  local tmux_socket_file="$project_dir/.swarmforge/tmux-socket"
+  local tmux_env_file="$project_dir/.swarmforge/tmux-env"
+  local bundle_file="$project_dir/.swarmforge/prompts/${role}.md"
+
+  local target_session=""
+  local idx r session display agent
+  while IFS=$'\t' read -r idx r session display agent; do
+    if [[ "${r:l}" == "${role:l}" ]]; then
+      target_session="$session"
+      break
+    fi
+  done < "$sessions_file"
+
+  if [[ -z "$target_session" ]]; then
+    echo "handoff_clear_first_deliver: role not found in sessions.tsv: $role" >&2
+    return 1
+  fi
+
+  if [[ -z "${TMUX:-}" && -f "$tmux_env_file" ]]; then
+    TMUX="$(< "$tmux_env_file")"
+    export TMUX
+  fi
+
+  local -a tmux_cmd=()
+  if [[ -n "${TMUX:-}" ]]; then
+    tmux_cmd=(tmux send-keys -t "$target_session")
+  else
+    local socket
+    socket="$(< "$tmux_socket_file")"
+    tmux_cmd=(tmux -S "$socket" send-keys -t "$target_session")
+  fi
+
+  # Send /clear then wait for context to reset
+  "${tmux_cmd[@]}" -l -- '/clear'
+  sleep 0.15
+  "${tmux_cmd[@]}" C-m
+  sleep 0.05
+  "${tmux_cmd[@]}" C-j
+  sleep 1
+
+  # Re-inject bundle if present
+  if [[ -f "$bundle_file" ]]; then
+    "${tmux_cmd[@]}" -l -- "$(< "$bundle_file")"
+    sleep 0.15
+    "${tmux_cmd[@]}" C-m
+    sleep 0.05
+    "${tmux_cmd[@]}" C-j
+    sleep 0.5
+  fi
+
+  # Send protocol message
+  "${tmux_cmd[@]}" -l -- "$(< "$message_file")"
+  sleep 0.15
+  "${tmux_cmd[@]}" C-m
+  sleep 0.05
+  "${tmux_cmd[@]}" C-j
+}
