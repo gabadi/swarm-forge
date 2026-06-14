@@ -470,7 +470,11 @@ launch_role() {
   if [[ "$agent" == "grok" ]] && ! mux_is_cmux; then
     send_initial_grok_prompt "$session" "$display" "$prompt_file"
   fi
-  echo -e "  ${CYAN}[${display}]${RESET} started in session ${session}"
+  if mux_is_cmux; then
+    echo -e "  ${CYAN}[${display}]${RESET} started in workspace ${MUX_TARGETS[$index]}"
+  else
+    echo -e "  ${CYAN}[${display}]${RESET} started in session ${session}"
+  fi
 }
 
 choose_cleanup_owner() {
@@ -539,11 +543,13 @@ echo -e "${GREEN}${BOLD}SwarmForge is ready.${RESET}"
 echo -e "Working directory: ${WORKING_DIR}"
 echo -e "Sessions:"
 for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
-  echo -e "  ${DISPLAY_NAMES[$i]}: ${SESSIONS[$i]}"
+  echo -e "  ${DISPLAY_NAMES[$i]}: ${MUX_TARGETS[$i]:-${SESSIONS[$i]}}"
 done
 echo ""
 echo -e "${GREEN}Tip: Write .swarmforge/notify/request, then run swarm-handoff while the swarm is running.${RESET}"
-echo -e "${GREEN}Tip: Reattach manually with 'tmux -S $TMUX_SOCKET attach-session -t <session-name>' if needed.${RESET}"
+if ! mux_is_cmux; then
+  echo -e "${GREEN}Tip: Reattach manually with 'tmux -S $TMUX_SOCKET attach-session -t <session-name>' if needed.${RESET}"
+fi
 echo ""
 
 if mux_is_cmux; then

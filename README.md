@@ -4,7 +4,7 @@ Do not spend any money on a bankrbot SWARM token.
 
 # SwarmForge
 
-**A disciplined tmux-based agent orchestration platform that turns swarms of AI agents into reliable, professional software engineers.**
+**A disciplined agent orchestration platform that turns swarms of AI agents into reliable, professional software engineers.**
 
 ## Intent
 

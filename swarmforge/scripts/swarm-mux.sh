@@ -34,23 +34,24 @@ mux_kill_existing() {
   local cmux_workspaces_file="$STATE_DIR/cmux-workspaces"
   local cmux_group_file="$STATE_DIR/cmux-group"
 
-  if [[ -s "$cmux_workspaces_file" ]]; then
-    local ws
-    while IFS= read -r ws; do
-      [[ -n "$ws" ]] || continue
-      cmux workspace close --workspace "$ws" || true
-    done < "$cmux_workspaces_file"
-    : > "$cmux_workspaces_file"
-  fi
-
   if [[ -s "$cmux_group_file" ]]; then
     local group
     group="$(< "$cmux_group_file")"
     if [[ -n "$group" ]]; then
-      cmux workspace-group delete "$group" || true
+      if ! cmux workspace-group delete "$group" 2>/dev/null; then
+        if [[ -s "$cmux_workspaces_file" ]]; then
+          local ws
+          while IFS= read -r ws; do
+            [[ -n "$ws" ]] || continue
+            cmux workspace close --workspace "$ws" || true
+          done < "$cmux_workspaces_file"
+        fi
+      fi
     fi
     : > "$cmux_group_file"
   fi
+
+  [[ -f "$cmux_workspaces_file" ]] && : > "$cmux_workspaces_file"
 }
 
 mux_create_all() {
@@ -66,7 +67,8 @@ mux_create_all() {
       [[ -n "$group" ]] || { echo "swarm-mux: cmux workspace-group create failed" >&2; return 1; }
       printf '%s\n' "$group" > "$STATE_DIR/cmux-group"
     else
-      cmux workspace-group add --group "$group" --workspace "$ws"
+      cmux workspace-group add --group "$group" --workspace "$ws" \
+        || { echo "swarm-mux: cmux workspace-group add failed for ${ROLES[$i]}" >&2; return 1; }
     fi
 
     MUX_TARGETS[$i]="$ws"
@@ -102,15 +104,14 @@ mux_cleanup_args() {
     done < "$cmux_workspaces_file"
   fi
 
-  echo "--mux cmux --group $group ${ws_refs[*]}"
+  printf '--mux cmux --group %q' "$group"
+  local _w
+  for _w in "${ws_refs[@]}"; do
+    printf ' %q' "$_w"
+  done
+  printf '\n'
 }
 
 mux_open_views() {
   cmux workspace select --workspace "${MUX_TARGETS[1]}"
-}
-
-mux_notify_snippet() {
-  printf 'cmux send --workspace "$TARGET_SESSION" -- "$message"\n'
-  printf 'sleep 0.15\n'
-  printf 'cmux send-key --workspace "$TARGET_SESSION" enter\n'
 }
