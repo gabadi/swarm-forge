@@ -110,18 +110,30 @@ ensure_initial_gitignore() {
     cat > "$gitignore_file" <<'EOF'
 .swarmforge/
 .worktrees/
+logbook.jsonl
+tmp/
 EOF
     return
   fi
 
-  if ! grep -qx '.swarmforge/' "$gitignore_file"; then
-    echo '.swarmforge/' >> "$gitignore_file"
+  local pattern
+  for pattern in '.swarmforge/' '.worktrees/' 'logbook.jsonl' 'tmp/'; do
+    if ! grep -qx "$pattern" "$gitignore_file"; then
+      echo "$pattern" >> "$gitignore_file"
+    fi
+  done
+}
+
+remove_nonessential_clone_files() {
+  if [[ "${WORKING_DIR:t}" == "swarm-forge" ]]; then
+    return
   fi
 
-  if ! grep -qx '.worktrees/' "$gitignore_file"; then
-    echo '.worktrees/' >> "$gitignore_file"
+  if [[ -d "$STATE_DIR" ]]; then
+    return
   fi
 
+  rm -rf "$WORKING_DIR/examples"
 }
 
 ensure_runtime_git_excludes() {
@@ -131,7 +143,7 @@ ensure_runtime_git_excludes() {
   touch "$exclude_file"
 
   local pattern
-  for pattern in ".swarmforge/" ".worktrees/"; do
+  for pattern in ".swarmforge/" ".worktrees/" "logbook.jsonl" "tmp/"; do
     if ! grep -qx "$pattern" "$exclude_file"; then
       echo "$pattern" >> "$exclude_file"
     fi
@@ -655,12 +667,19 @@ choose_cleanup_owner() {
 check_dependency tmux
 check_dependency git
 detect_tmux_base_indexes
+remove_nonessential_clone_files
 initialize_git_repo
 ensure_runtime_git_excludes
 install_shared_constitution_articles "$WORKING_DIR"
 parse_config
 check_backend_dependencies
 ensure_skills_installed
+
+if [[ ! -f "$STATE_DIR/setup-complete" ]]; then
+  echo -e "${RED}Error:${RESET} project is not swarm-ready. Run /setup-swarm first." >&2
+  exit 1
+fi
+
 prepare_workspace
 prepare_worktrees
 choose_cleanup_owner
