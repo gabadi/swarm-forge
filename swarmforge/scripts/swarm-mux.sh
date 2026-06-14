@@ -1,3 +1,5 @@
+typeset -a MUX_TARGETS=()
+
 mux_is_cmux() {
   if [[ -n "${SWARM_MUX:-}" ]]; then
     [[ "$SWARM_MUX" == "cmux" ]]
@@ -57,9 +59,11 @@ mux_create_all() {
 
   for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
     ws=$(cmux workspace create --name "SwarmForge ${DISPLAY_NAMES[$i]}" --cwd "${WORKTREE_PATHS[$i]}" --focus false | awk '/^OK/{print $2; exit}')
+    [[ -n "$ws" ]] || { echo "swarm-mux: cmux workspace create failed for role ${ROLES[$i]}" >&2; return 1; }
 
     if (( i == 1 )); then
       group=$(cmux workspace-group create --name "SwarmForge · ${WORKING_DIR:t}" --from "$ws" | awk '/^OK/{print $2; exit}')
+      [[ -n "$group" ]] || { echo "swarm-mux: cmux workspace-group create failed" >&2; return 1; }
       printf '%s\n' "$group" > "$STATE_DIR/cmux-group"
     else
       cmux workspace-group add --group "$group" --workspace "$ws"
