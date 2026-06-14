@@ -20,4 +20,5 @@ Upstream QA verifies that the accepted specification is met and fixes what fails
 ## Pending implementation
 
 - Prompt change on `six-pack`.
+- Conversion fidelity is made auditable by the surface-harness conversion rule (ADR 0010): every Expected bullet maps to a harness assertion or is marked `NOT AUTOMATED — <reason>`, so a dropped bullet is visible rather than taken on QA's word.
 - Whether QA's converted end-to-end suite should itself be mutation-tested (the hardener currently ignores it) — the objective way to detect a theatrical conversion rather than relying on QA's self-judgment.

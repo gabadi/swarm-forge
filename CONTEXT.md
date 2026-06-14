@@ -47,3 +47,19 @@ _Avoid_: hidden tests, secret suite, test isolation
 **Spec header**:
 The structured block of comment sections the specifier fills in at the top of every feature file, above the Gherkin scenarios — the spec-authoring layer that states what the scenarios cannot: contract, constraints, sequencing, NFRs, side effects, scope (and, six-pack only, _UX Intent_). The scenarios are the contract by example; the spec header is the contract's surrounding intent. Every section is addressed; several default to `none` (a deliberate answer). Comments only, so the Gherkin parser ignores them. (Upstream feature files are pure Gherkin with no header.)
 _Avoid_: preamble, comment block, feature description
+
+**Surface harness**:
+The way the live-verification roles (QA always; the _UX Engineer_ on six-pack) drive the running system through its real production interface — a declared per-surface tool (tmux/PTY for a TUI, Playwright for web, an HTTP client for an API, event injection for a headless service) chosen from the constitution's surface tool table. Replaces upstream's mechanically-silent "through the user interface only," which let in-process function calls pass as interface verification. Every surface also carries a _baseline scenario_. The role identifies the surface from the codebase; nothing declares it in `project.prompt`.
+_Avoid_: UI test, e2e harness, driver
+
+**Baseline scenario**:
+The permanent idle/no-op scenario committed alongside a surface's flow scenarios, asserting the system is stable when nothing is happening — TUI: no input, identical consecutive captures, zero scrollback growth; web: idle load with no console errors; headless: a no-op event changes no state. It catches idle-state defects that flow scenarios never observe because flow scenarios only assert while the user is acting.
+_Avoid_: smoke test, idle test, sanity check
+
+**Fidelity manifest**:
+The constitution sub-file (`dependency-manifest.prompt`) declaring every dependency beyond the system itself by _dependency tier_, each as `name: tier N; implementation; gaps: <description or none>`. A declared gap is binding: the specifier and QA refuse to write or accept any scenario that rests on it, so a known emulator limitation can never pass as covered behavior. Specifier-owned; defaults to `(none)`.
+_Avoid_: mock list, dependency doc, services file
+
+**Dependency tier**:
+The fidelity level at which a dependency is provided, declared in the _fidelity manifest_. Tier 1 — owned infrastructure run locally as the real engine (Postgres in Docker); tier 2 — stateful protocol-level emulation (vendor-official > third-party > swarm-built twin as last resort); tier 3 — external domain the swarm does not own, wire-level stubbed against a referenced contract. The system itself is always implicit, never a tier.
+_Avoid_: mock level, fidelity grade
