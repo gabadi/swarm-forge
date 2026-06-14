@@ -430,7 +430,7 @@ launch_role() {
 
   case "$agent" in
     claude)
-      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && claude --append-system-prompt-file '$prompt_file' --permission-mode acceptEdits -n 'SwarmForge ${display}' \"\$(cat '$prompt_file')\""
+      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && claude --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}' \"\$(cat '$prompt_file')\""
       ;;
     codex)
       launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && codex -C '$role_worktree' \"\$(cat '$prompt_file')\""
@@ -439,7 +439,7 @@ launch_role() {
       launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && copilot -C '$role_worktree' --name 'SwarmForge ${display}' -i \"\$(cat '$prompt_file')\""
       ;;
     grok)
-      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && grok --cwd '$role_worktree' --permission-mode acceptEdits --rules \"\$(cat '$prompt_file')\""
+      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && grok --cwd '$role_worktree' --permission-mode auto --rules \"\$(cat '$prompt_file')\""
       ;;
   esac
 
