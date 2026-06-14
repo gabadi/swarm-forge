@@ -25,6 +25,7 @@ WINDOW_STATE_FILE="$STATE_DIR/windows.tsv"
 WINDOW_WATCHDOG_LOG="$STATE_DIR/window-watchdog.log"
 SESSIONS_FILE="$STATE_DIR/sessions.tsv"
 PROMPTS_DIR="$STATE_DIR/prompts"
+QA_HOLDOUT_PATH="${SWARMFORGE_QA_HOLDOUT_PATH:-qa-e2e}"
 TMUX_SOCKET_DIR="/private/tmp/swarmforge-${UID}"
 PROJECT_SOCKET_ID="$(printf '%s' "$WORKING_DIR" | cksum)"
 PROJECT_SOCKET_ID="${PROJECT_SOCKET_ID%% *}"
@@ -347,8 +348,9 @@ write_tmux_env_file() {
 }
 
 prepare_worktrees() {
-  local i worktree_name worktree_path branch_name
+  local i role worktree_name worktree_path branch_name
   for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
+    role="${ROLES[$i]}"
     worktree_name="${WORKTREE_NAMES[$i]}"
     worktree_path="${WORKTREE_PATHS[$i]}"
     branch_name="swarmforge-${worktree_name}"
@@ -361,6 +363,16 @@ prepare_worktrees() {
       git -C "$WORKING_DIR" worktree add --force -B "$branch_name" "$worktree_path" HEAD >/dev/null
     fi
     write_worktree_permissions "$worktree_path"
+
+    if [[ "$role" != "specifier" && "$role" != "QA" ]]; then
+      git -C "$worktree_path" sparse-checkout init --no-cone >/dev/null 2>&1
+      {
+        printf '/*\n'
+        printf '!/%s/\n' "$QA_HOLDOUT_PATH"
+      } > "$worktree_path/.git/info/sparse-checkout" 2>/dev/null \
+        || git -C "$worktree_path" sparse-checkout set --no-cone '/*' "!/${QA_HOLDOUT_PATH}/" >/dev/null 2>&1
+      git -C "$worktree_path" read-tree -mu HEAD >/dev/null 2>&1 || true
+    fi
   done
 }
 
