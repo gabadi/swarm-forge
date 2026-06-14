@@ -386,14 +386,58 @@ create_role_session() {
   tmux -S "$TMUX_SOCKET" set-window-option -t "$session:$title" allow-rename off
 }
 
+resolve_prompt_bundle() {
+  local role="$1"
+  typeset -a bundle=()
+  typeset -A seen=()
+  typeset -a queue=("$CONSTITUTION_FILE" "$ROLES_DIR/${role}.prompt")
+  local file rel_path ref ref_abs
+
+  while (( ${#queue[@]} > 0 )); do
+    file="${queue[1]}"
+    shift queue
+
+    rel_path="${file#${WORKING_DIR}/}"
+    [[ ${+seen[$rel_path]} -eq 1 ]] && continue
+    [[ ! -f "$file" ]] && continue
+
+    seen[$rel_path]=1
+    bundle+=("$rel_path")
+
+    while IFS= read -r ref; do
+      [[ -z "$ref" ]] && continue
+      ref_abs="$WORKING_DIR/$ref"
+      [[ ${+seen[$ref]} -eq 0 ]] && queue+=("$ref_abs")
+    done < <(grep -oE 'swarmforge/[A-Za-z0-9_./-]+\.prompt' "$file" 2>/dev/null || true)
+  done
+
+  printf '%s\n' "${bundle[@]}"
+}
+
 write_agent_instruction_file() {
   local role="$1"
   local prompt_file="$2"
+  typeset -a bundle_files=()
+  local rel abs_path
 
-  cat > "$prompt_file" <<EOF
-Read swarmforge/constitution.prompt, then read every file it refers to recursively, and obey all of those instructions.
-Read swarmforge/roles/${role}.prompt, then read every file it refers to recursively, and follow all of those instructions.
-EOF
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] && bundle_files+=("$rel")
+  done < <(resolve_prompt_bundle "$role")
+
+  {
+    printf '<swarmforge_agent_context role="%s">\n' "$role"
+    printf '<instructions>\n'
+    printf 'This prompt bundle is pre-resolved. Do not open or re-read any swarmforge/*.prompt files — all relevant instructions are already included below.\n'
+    printf '</instructions>\n'
+    for rel in "${bundle_files[@]}"; do
+      abs_path="$WORKING_DIR/$rel"
+      [[ -f "$abs_path" ]] || continue
+      printf '<file path="%s">\n' "$rel"
+      cat "$abs_path"
+      printf '\n</file>\n'
+    done
+    printf '</swarmforge_agent_context>\n'
+  } > "$prompt_file"
 }
 
 send_initial_grok_prompt() {
