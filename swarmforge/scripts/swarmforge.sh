@@ -151,6 +151,7 @@ has_command() {
 }
 
 source "$SCRIPT_DIR/swarm-terminal-adapter.sh"
+source "$SCRIPT_DIR/swarm-mux.sh"
 
 display_name_for_role() {
   local role="$1"
@@ -271,7 +272,7 @@ write_sessions_file() {
     printf '%s\t%s\t%s\t%s\t%s\n' \
       "$i" \
       "${ROLES[$i]}" \
-      "${SESSIONS[$i]}" \
+      "${MUX_TARGETS[$i]:-${SESSIONS[$i]}}" \
       "${DISPLAY_NAMES[$i]}" \
       "${AGENTS[$i]}" >> "$SESSIONS_FILE"
   done
@@ -360,8 +361,10 @@ sync_worktree_scripts() {
     install_shared_constitution_articles "$worktree_path"
     mkdir -p "$role_state_dir/notify"
     cp "$SESSIONS_FILE" "$role_state_dir/sessions.tsv"
-    cp "$TMUX_SOCKET_FILE" "$role_state_dir/tmux-socket"
-    cp "$TMUX_ENV_FILE" "$role_state_dir/tmux-env"
+    if ! mux_is_cmux; then
+      cp "$TMUX_SOCKET_FILE" "$role_state_dir/tmux-socket"
+      cp "$TMUX_ENV_FILE" "$role_state_dir/tmux-env"
+    fi
   done
 }
 
@@ -444,17 +447,27 @@ launch_role() {
   esac
 
   if [[ "$index" -eq "${CLEANUP_OWNER_INDEX}" ]]; then
-    launch_cmd="${launch_cmd}; exit_code=\$?; SWARMFORGE_TERMINAL_BACKEND='$TERMINAL_BACKEND' nohup '$SCRIPT_DIR/swarm-cleanup.sh' '$TMUX_SOCKET' '$WINDOW_IDS_FILE'"
-    local session_name
-    for session_name in "${SESSIONS[@]}"; do
-      [[ -n "$session_name" ]] || continue
-      launch_cmd+=" '$session_name'"
-    done
-    launch_cmd+=" >/dev/null 2>&1 &!; exit \$exit_code"
+    if mux_is_cmux; then
+      local cmux_cleanup_args
+      cmux_cleanup_args="$(mux_cleanup_args)"
+      launch_cmd="${launch_cmd}; exit_code=\$?; nohup '${SCRIPT_DIR}/swarm-cleanup.sh' ${cmux_cleanup_args} >/dev/null 2>&1 &!; exit \$exit_code"
+    else
+      launch_cmd="${launch_cmd}; exit_code=\$?; SWARMFORGE_TERMINAL_BACKEND='${TERMINAL_BACKEND}' nohup '${SCRIPT_DIR}/swarm-cleanup.sh' '${TMUX_SOCKET}' '${WINDOW_IDS_FILE}'"
+      local session_name
+      for session_name in "${SESSIONS[@]}"; do
+        [[ -n "$session_name" ]] || continue
+        launch_cmd+=" '${session_name}'"
+      done
+      launch_cmd+=" >/dev/null 2>&1 &!; exit \$exit_code"
+    fi
   fi
 
-  tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" "$launch_cmd" Enter
-  if [[ "$agent" == "grok" ]]; then
+  if mux_is_cmux; then
+    mux_deliver "$index" "$launch_cmd"
+  else
+    tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" "$launch_cmd" Enter
+  fi
+  if [[ "$agent" == "grok" ]] && ! mux_is_cmux; then
     send_initial_grok_prompt "$session" "$display" "$prompt_file"
   fi
   echo -e "  ${CYAN}[${display}]${RESET} started in session ${session}"
@@ -464,28 +477,38 @@ choose_cleanup_owner() {
   CLEANUP_OWNER_INDEX=1
 }
 
-check_dependency tmux
+check_dependency "$(mux_dependency)"
 check_dependency git
-detect_tmux_base_indexes
+if ! mux_is_cmux; then
+  detect_tmux_base_indexes
+fi
 initialize_git_repo
 ensure_runtime_git_excludes
 install_shared_constitution_articles "$WORKING_DIR"
 parse_config
+mux_init_targets
 check_backend_dependencies
 prepare_workspace
+printf '%s\n' "$SWARM_MUX" > "$STATE_DIR/mux-backend"
 prepare_worktrees
 choose_cleanup_owner
-TERMINAL_BACKEND="$(detect_terminal_backend)"
-load_terminal_backend "$TERMINAL_BACKEND"
+if ! mux_is_cmux; then
+  TERMINAL_BACKEND="$(detect_terminal_backend)"
+  load_terminal_backend "$TERMINAL_BACKEND"
+fi
 
-local_session=""
-for local_session in "${SESSIONS[@]}"; do
-  [[ -n "$local_session" ]] || continue
-  if tmux -S "$TMUX_SOCKET" has-session -t "$local_session" 2>/dev/null; then
-    echo -e "${YELLOW}Existing SwarmForge session found: ${local_session}. Killing it...${RESET}"
-    tmux -S "$TMUX_SOCKET" kill-session -t "$local_session"
-  fi
-done
+if mux_is_cmux; then
+  mux_kill_existing
+else
+  local_session=""
+  for local_session in "${SESSIONS[@]}"; do
+    [[ -n "$local_session" ]] || continue
+    if tmux -S "$TMUX_SOCKET" has-session -t "$local_session" 2>/dev/null; then
+      echo -e "${YELLOW}Existing SwarmForge session found: ${local_session}. Killing it...${RESET}"
+      tmux -S "$TMUX_SOCKET" kill-session -t "$local_session"
+    fi
+  done
+fi
 
 echo -e "${CYAN}${BOLD}"
 echo "  ╔═══════════════════════════════════════════════╗"
@@ -494,11 +517,16 @@ echo "  ║   Disciplined agents build better software    ║"
 echo "  ╚═══════════════════════════════════════════════╝"
 echo -e "${RESET}"
 
-echo -e "${GREEN}Launching SwarmForge tmux sessions...${RESET}"
-for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
-  create_role_session "${SESSIONS[$i]}" "${DISPLAY_NAMES[$i]}"
-done
-write_tmux_env_file
+if mux_is_cmux; then
+  echo -e "${GREEN}Launching SwarmForge cmux workspaces...${RESET}"
+  mux_create_all
+else
+  echo -e "${GREEN}Launching SwarmForge tmux sessions...${RESET}"
+  for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
+    create_role_session "${SESSIONS[$i]}" "${DISPLAY_NAMES[$i]}"
+  done
+  write_tmux_env_file
+fi
 sync_worktree_scripts
 
 echo -e "${GREEN}Starting agents...${RESET}"
@@ -518,37 +546,41 @@ echo -e "${GREEN}Tip: Write .swarmforge/notify/request, then run swarm-handoff w
 echo -e "${GREEN}Tip: Reattach manually with 'tmux -S $TMUX_SOCKET attach-session -t <session-name>' if needed.${RESET}"
 echo ""
 
-if terminal_backend_can_open_sessions; then
-  echo -e "Opening separate $(terminal_backend_label) surfaces for each session..."
-  if terminal_backend_tracks_windows; then
-    : > "$WINDOW_IDS_FILE"
-    : > "$WINDOW_STATE_FILE"
-  fi
-  previous_window_id=""
-  for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
-    window_id="$(terminal_open_session "${SESSIONS[$i]}" "SwarmForge ${DISPLAY_NAMES[$i]}" "$previous_window_id")"
-    if terminal_backend_tracks_windows; then
-      echo "$window_id" >> "$WINDOW_IDS_FILE"
-      printf '%s\t%s\t%s\t%s\n' \
-        "$i" \
-        "$window_id" \
-        "${SESSIONS[$i]}" \
-        "SwarmForge ${DISPLAY_NAMES[$i]}" >> "$WINDOW_STATE_FILE"
-      previous_window_id="$window_id"
-    fi
-  done
-  if terminal_backend_tracks_windows; then
-    nohup "$SCRIPT_DIR/swarm-window-watchdog.sh" \
-      "$WINDOW_STATE_FILE" \
-      "$WINDOW_IDS_FILE" \
-      "$CLEANUP_OWNER_INDEX" \
-      "$TMUX_SOCKET" \
-      "$WORKING_DIR" \
-      "$TERMINAL_BACKEND" > "$WINDOW_WATCHDOG_LOG" 2>&1 &
-  else
-    echo -e "${YELLOW}$(terminal_backend_label) surfaces are not trackable; window watchdog is disabled for this backend.${RESET}"
-  fi
+if mux_is_cmux; then
+  mux_open_views
 else
-  echo -e "${YELLOW}No terminal backend found; attaching current shell to '${SESSIONS[$CLEANUP_OWNER_INDEX]}' instead.${RESET}"
-  tmux -S "$TMUX_SOCKET" attach-session -t "${SESSIONS[$CLEANUP_OWNER_INDEX]}"
+  if terminal_backend_can_open_sessions; then
+    echo -e "Opening separate $(terminal_backend_label) surfaces for each session..."
+    if terminal_backend_tracks_windows; then
+      : > "$WINDOW_IDS_FILE"
+      : > "$WINDOW_STATE_FILE"
+    fi
+    previous_window_id=""
+    for (( i = 1; i <= ${#ROLES[@]}; i++ )); do
+      window_id="$(terminal_open_session "${SESSIONS[$i]}" "SwarmForge ${DISPLAY_NAMES[$i]}" "$previous_window_id")"
+      if terminal_backend_tracks_windows; then
+        echo "$window_id" >> "$WINDOW_IDS_FILE"
+        printf '%s\t%s\t%s\t%s\n' \
+          "$i" \
+          "$window_id" \
+          "${SESSIONS[$i]}" \
+          "SwarmForge ${DISPLAY_NAMES[$i]}" >> "$WINDOW_STATE_FILE"
+        previous_window_id="$window_id"
+      fi
+    done
+    if terminal_backend_tracks_windows; then
+      nohup "$SCRIPT_DIR/swarm-window-watchdog.sh" \
+        "$WINDOW_STATE_FILE" \
+        "$WINDOW_IDS_FILE" \
+        "$CLEANUP_OWNER_INDEX" \
+        "$TMUX_SOCKET" \
+        "$WORKING_DIR" \
+        "$TERMINAL_BACKEND" > "$WINDOW_WATCHDOG_LOG" 2>&1 &
+    else
+      echo -e "${YELLOW}$(terminal_backend_label) surfaces are not trackable; window watchdog is disabled for this backend.${RESET}"
+    fi
+  else
+    echo -e "${YELLOW}No terminal backend found; attaching current shell to '${SESSIONS[$CLEANUP_OWNER_INDEX]}' instead.${RESET}"
+    tmux -S "$TMUX_SOCKET" attach-session -t "${SESSIONS[$CLEANUP_OWNER_INDEX]}"
+  fi
 fi

@@ -1,6 +1,27 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
+if [[ "${1:-}" == "--mux" && "${2:-}" == "cmux" ]]; then
+  shift 2
+  _cmux_group=""
+  if [[ "${1:-}" == "--group" ]]; then
+    _cmux_group="$2"
+    shift 2
+  fi
+  if [[ -n "$_cmux_group" ]]; then
+    cmux workspace-group delete "$_cmux_group" 2>/dev/null || {
+      for _cmux_ws in "$@"; do
+        cmux workspace close --workspace "$_cmux_ws" 2>/dev/null || true
+      done
+    }
+  else
+    for _cmux_ws in "$@"; do
+      cmux workspace close --workspace "$_cmux_ws" 2>/dev/null || true
+    done
+  fi
+  exit 0
+fi
+
 if [[ $# -lt 2 ]]; then
   echo "Usage: swarm-cleanup.sh <tmux-socket> <window-ids-file> [session ...]" >&2
   exit 1

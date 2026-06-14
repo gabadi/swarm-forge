@@ -194,6 +194,14 @@ if [[ ! -f "$MESSAGE_FILE" ]]; then
 fi
 MESSAGE="$(< "$MESSAGE_FILE")"
 
+MUX_BACKEND_FILE="$PROJECT_DIR/.swarmforge/mux-backend"
+if [[ -f "$MUX_BACKEND_FILE" ]] && [[ "$(< "$MUX_BACKEND_FILE")" == "cmux" ]]; then
+  cmux send --workspace "$TARGET_SESSION" -- "$MESSAGE"
+  sleep 0.15
+  cmux send-key --workspace "$TARGET_SESSION" enter
+  exit 0
+fi
+
 if [[ -z "${TMUX:-}" && -f "$TMUX_ENV_FILE" ]]; then
   TMUX="$(< "$TMUX_ENV_FILE")"
   export TMUX

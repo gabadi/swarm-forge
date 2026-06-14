@@ -51,6 +51,17 @@ SwarmForge runs locally. Before starting a runnable branch, make sure the target
 - `tmux`
 - At least one configured agent backend, such as `codex`, `claude`, `copilot`, or `grok`
 
+## Multiplexer Backend
+
+SwarmForge selects a multiplexer automatically:
+
+- **cmux** — when any of `CMUX_SOCKET_PATH`, `CMUX_SOCKET`, `CMUX_WORKSPACE_ID`, or `CMUX_SURFACE_ID` is set in the environment (i.e., when running from inside a cmux workspace). Each role gets its own native cmux workspace collected under a `SwarmForge · <project>` group. No tmux process is started; the window watchdog is disabled.
+- **tmux** — the default when cmux is not detected. Uses tmux sessions, the configured terminal adapter, and the window watchdog.
+
+Override the automatic selection by setting `SWARM_MUX=cmux` or `SWARM_MUX=tmux` before running `./swarm`.
+
+To stop the swarm manually, run `swarmforge/scripts/swarm-stop.sh` from the project directory. It reads `.swarmforge/mux-backend` and tears down the correct multiplexer.
+
 ## Getting Started
 
 In the directory where you want to use SwarmForge, choose a runnable branch and pull its contents without creating a Git remote:
