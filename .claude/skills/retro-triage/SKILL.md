@@ -19,7 +19,7 @@ This is NOT `mattpocock-skills:triage`. That skill triages *incoming* issues fro
 
 ## When to Use
 
-- Unprocessed retros sit in `~/.claude/worklog/retros/` (no `consolidated:` frontmatter)
+- Unprocessed retros sit in `~/.claude/worklog/retros/` (no `consolidated:` frontmatter) — the curator's `processed/` archive is also scanned, so curated retros stay visible to a later diagnosis
 - Periodically after a swarmforge batch closes
 
 **Do NOT use:**
@@ -31,7 +31,8 @@ This is NOT `mattpocock-skills:triage`. That skill triages *incoming* issues fro
 
 1. **Unprocessed retros** — files in `~/.claude/worklog/retros/*.md` lacking `consolidated:` in their first 5 lines AND whose name lacks `CONSOLIDATED`. Use this detector exactly (`grep -L` over the whole file gives false positives when "consolidated" appears in the body):
    ```bash
-   for f in ~/.claude/worklog/retros/*.md; do
+   for f in ~/.claude/worklog/retros/*.md ~/.claude/worklog/retros/processed/*.md; do
+     [ -e "$f" ] || continue   # globs that match nothing expand literally
      case "$(basename "$f")" in *CONSOLIDATED*) continue ;; esac
      head -5 "$f" | grep -q '^consolidated:' || echo "$f"
    done
