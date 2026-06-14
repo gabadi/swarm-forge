@@ -18,15 +18,40 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from datetime import datetime
 
-# Approximate pricing per million tokens (Claude Opus 4.6)
+# Approximate pricing per million tokens, by model family.
 # Update these when Anthropic changes pricing and bump PRICING_LAST_VERIFIED.
-PRICING_LAST_VERIFIED = "2026-04-06"
-PRICE_PER_M = {
-    "input": 15.0,
-    "output": 75.0,
-    "cache_create": 18.75,  # 1.25x input
-    "cache_read": 1.50,     # 0.1x input
+# cache_create = 1.25x input (5-minute TTL); cache_read = 0.1x input.
+PRICING_LAST_VERIFIED = "2026-06-14"
+PRICE_TABLE = {
+    "opus":   {"input": 5.0,  "output": 25.0, "cache_create": 6.25, "cache_read": 0.50},
+    "sonnet": {"input": 3.0,  "output": 15.0, "cache_create": 3.75, "cache_read": 0.30},
+    "haiku":  {"input": 1.0,  "output": 5.0,  "cache_create": 1.25, "cache_read": 0.10},
+    "fable":  {"input": 10.0, "output": 50.0, "cache_create": 12.5, "cache_read": 1.00},
 }
+# Fall back to the most expensive family for an unknown/empty model so cost is
+# never silently understated.
+DEFAULT_PRICE_FAMILY = "opus"
+
+
+def price_for_model(model):
+    """Map a model id/name to its pricing family. Unknown models fall back to
+    DEFAULT_PRICE_FAMILY."""
+    m = (model or "").lower()
+    for family in ("haiku", "sonnet", "opus", "fable"):
+        if family in m:
+            return PRICE_TABLE[family]
+    return PRICE_TABLE[DEFAULT_PRICE_FAMILY]
+
+
+def compute_cost(tokens, model):
+    """Cost in USD for a token-usage dict, priced for the given model."""
+    p = price_for_model(model)
+    return (
+        tokens["input_tokens"] / 1_000_000 * p["input"]
+        + tokens["output_tokens"] / 1_000_000 * p["output"]
+        + tokens["cache_creation_input_tokens"] / 1_000_000 * p["cache_create"]
+        + tokens["cache_read_input_tokens"] / 1_000_000 * p["cache_read"]
+    )
 
 SCHEMA_VERSION = "0.1.0"
 
@@ -94,10 +119,15 @@ def extract_metadata_lite(path):
     version = extract_json_field(head, "version")
     start_time = extract_json_field(head, "timestamp")
 
-    # Extract from tail (end of session)
-    end_time = extract_json_field(tail, "timestamp")
-    # Scan tail backwards for the last timestamp
-    for line in reversed(tail.split("\n")):
+    # Extract from tail (end of session). When the file exceeds the buffer the
+    # tail starts mid-line, so the first split element is a partial record whose
+    # timestamp would be wrong — drop it before scanning. Scan complete lines
+    # backwards for the last timestamp.
+    tail_lines = tail.split("\n")
+    if size > LITE_READ_BUF_SIZE and tail_lines:
+        tail_lines = tail_lines[1:]
+    end_time = None
+    for line in reversed(tail_lines):
         ts = extract_json_field(line, "timestamp")
         if ts:
             end_time = ts
@@ -159,6 +189,7 @@ def extract_all_streaming(jsonl_path, subagents_dir=None, summary_mode=False):
         "end_time": None,
         "duration_seconds": None,
         "branches_seen": set(),
+        "model": None,
     }
 
     # Token totals
@@ -221,6 +252,8 @@ def extract_all_streaming(jsonl_path, subagents_dir=None, summary_mode=False):
             tokens_total["cache_creation_input_tokens"] += usage.get("cache_creation_input_tokens", 0)
             tokens_total["cache_read_input_tokens"] += usage.get("cache_read_input_tokens", 0)
             turn_count += 1
+            if not session["model"] and msg.get("model"):
+                session["model"] = msg.get("model")
 
         # --- Process content blocks ---
         if isinstance(content, list):
@@ -365,13 +398,8 @@ def extract_all_streaming(jsonl_path, subagents_dir=None, summary_mode=False):
             session["duration_seconds"] = round((end - start).total_seconds())
     session["branches_seen"] = sorted(session["branches_seen"])
 
-    # Compute cost
-    cost = (
-        tokens_total["input_tokens"] / 1_000_000 * PRICE_PER_M["input"]
-        + tokens_total["output_tokens"] / 1_000_000 * PRICE_PER_M["output"]
-        + tokens_total["cache_creation_input_tokens"] / 1_000_000 * PRICE_PER_M["cache_create"]
-        + tokens_total["cache_read_input_tokens"] / 1_000_000 * PRICE_PER_M["cache_read"]
-    )
+    # Compute cost (priced for the session's own model)
+    cost = compute_cost(tokens_total, session["model"])
 
     # Attach result sizes to tool calls
     for call in tool_calls:
@@ -484,6 +512,7 @@ def _match_subagent_files(agents, subagents_dir):
         sa_tokens = {"input_tokens": 0, "output_tokens": 0,
                      "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
         sa_start = None
+        sa_model = None
         turn_count = 0
 
         for rec in stream_jsonl(sa_file):
@@ -495,15 +524,13 @@ def _match_subagent_files(agents, subagents_dir):
                 sa_tokens["cache_creation_input_tokens"] += usage.get("cache_creation_input_tokens", 0)
                 sa_tokens["cache_read_input_tokens"] += usage.get("cache_read_input_tokens", 0)
                 turn_count += 1
+                if sa_model is None and msg.get("model"):
+                    sa_model = msg.get("model")
             if sa_start is None and "timestamp" in rec:
                 sa_start = parse_ts(rec["timestamp"])
 
-        sa_cost = (
-            sa_tokens["input_tokens"] / 1_000_000 * PRICE_PER_M["input"]
-            + sa_tokens["output_tokens"] / 1_000_000 * PRICE_PER_M["output"]
-            + sa_tokens["cache_creation_input_tokens"] / 1_000_000 * PRICE_PER_M["cache_create"]
-            + sa_tokens["cache_read_input_tokens"] / 1_000_000 * PRICE_PER_M["cache_read"]
-        )
+        # Price each subagent for the model it actually ran on.
+        sa_cost = compute_cost(sa_tokens, sa_model)
 
         # Load meta file if present
         meta = None
@@ -517,6 +544,7 @@ def _match_subagent_files(agents, subagents_dir):
             "tokens": sa_tokens,
             "cost": round(sa_cost, 4),
             "start_time": sa_start,
+            "model": sa_model,
             "meta": meta,
         })
 
@@ -544,6 +572,8 @@ def _match_subagent_files(agents, subagents_dir):
         if best_match is not None:
             agents[best_match]["tokens"] = sa["tokens"]
             agents[best_match]["estimated_cost_usd"] = sa["cost"]
+            if sa["model"]:
+                agents[best_match]["model"] = sa["model"]
             agents[best_match]["subagent_file"] = sa["file"]
             agents[best_match]["match_delta_s"] = round(best_delta, 1)
             if sa["meta"]:
@@ -557,7 +587,7 @@ def _match_subagent_files(agents, subagents_dir):
             agents.append({
                 "description": f"[unmatched subagent: {sa['file']}]",
                 "type": "unknown",
-                "model": "unknown",
+                "model": sa["model"] or "unknown",
                 "prompt_preview": "",
                 "background": False,
                 "timestamp": str(sa["start_time"]) if sa["start_time"] else None,
