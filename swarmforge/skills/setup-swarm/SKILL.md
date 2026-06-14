@@ -13,24 +13,26 @@ Run this skill **once** before invoking `./swarm`. It prepares the project so th
 
 ---
 
-## Step 1 — Detect the project stack
+## Step 1 — Ask the operator for the project stack
 
-Read the repository to infer the primary language(s). Evidence sources (use all that are present):
-- `go.mod` / `go.sum` → Go
-- `pom.xml` / `build.gradle` / `build.gradle.kts` → Java / Kotlin / JVM
-- `Cargo.toml` → Rust
-- `package.json` → JavaScript / TypeScript (check `tsconfig.json` to confirm TS)
-- `requirements.txt` / `pyproject.toml` / `setup.py` → Python
-- `*.clj` / `project.clj` / `deps.edn` → Clojure
-- `*.rb` / `Gemfile` → Ruby
+Ask the operator:
 
-If the stack is genuinely ambiguous (mixed repo, no recognisable files), list what you found and ask the operator which language to treat as primary. Do not guess.
+> Which stack is this project?
+> 1. Go
+> 2. Java / Kotlin (JVM)
+> 3. JavaScript / TypeScript
+> 4. Python
+> 5. Rust
+> 6. Clojure
+> 7. Ruby
+
+Wait for the operator's answer before proceeding. Do not infer or detect the stack from the repository.
 
 ---
 
 ## Step 2 — Install quality tools
 
-Based on the detected stack, install the mutation, CRAP, and DRY tools. These are the tools that cleaner, hardener, and QA will use during the swarm run.
+Based on the operator's chosen stack, install the mutation, CRAP, and DRY tools. These are the tools that cleaner, hardener, and QA will use during the swarm run.
 
 **Go:** `go install honnef.co/go/tools/cmd/staticcheck@latest` (CRAP), a mutation tool such as `go-mutesting` if available.
 
