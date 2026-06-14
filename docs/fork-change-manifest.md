@@ -4,6 +4,8 @@ Compact, permanent record of **every divergence to apply on top of a pristine `u
 
 ## Sync policy (ADR 0001)
 
+- **Current upstream baseline (re-apply the fork layer onto this):** `main` ← `upstream/main` @ `d947f67` · `six-pack` ← `upstream/six-pack` @ `cbd1697` (2026-06-14). Bump these on every sync; an annotated `fork-base/<date>-<branch>` tag pins the same commit so the anchor survives a hard reset (merge history alone does not — this fork has been reset before).
+- **Merge style by source:** every **fork divergence is squash-merged** (one divergence PR → one clean commit on the delivery branch). **Upstream syncs are history-preserving merges** — never squashed, never rebased (keep upstream's story; `rerere` replays conflicts). The two initial re-implementation PRs follow the same squash rule (one squashed commit per branch). A landed commit is never rewritten.
 - `main`, `six-pack`, `four-pack` are kept **identical to `upstream/<branch>`** and advanced by **merge** (`git merge upstream/<branch>`), never rebase. `rerere` replays conflict resolutions.
 - **four-pack is frozen (decision 2026-06-14): no fork divergences are applied to it.** Only `main` and `six-pack` carry changes. (Open: whether four-pack is still resynced to upstream to honor "keep == upstream", or left as-is — see below.)
 - Every item below is **additive** (new file or appended rule) wherever possible; a non-additive edit to an upstream line is marked **[edit]** and is a conscious, documented conflict point.
@@ -107,7 +109,7 @@ Also unimplemented draft, not a divergence: `backup/main-pre-reset:docs/proposal
 2. **ADR 0002 clear-first on six-pack** — RESOLVED: the model column is **configuration** (governed by ADR 0012's per-role model), not an architectural decision. No codex-hook work is added. ADR 0002 stands as written — clear-first is claude-first; codex roles keep upstream delivery as a documented property.
 3. *(resolved earlier)* cmux **DROPPED** (stay on upstream tmux harness); Idea-B bundle-inlining **KEPT** but disentangled — port `resolve_prompt_bundle` + XML envelope onto upstream's harness, re-base executing-fields/M3 on it. ADR 0012 `--advisor` resolved (`advisorModel` in `settings.local.json`).
 4. **four-pack** — RESOLVED: kept as a **pure merge-mirror of `upstream/four-pack`** (no fork content ever) to honor ADR 0001's "all branches == upstream"; resync via merge-only.
-5. **PR shape for implementation** — DEFERRED to implementation time (does not affect the ADR set). Note the one-difference-per-ADR rule; likely grouped by layer + dependency (B → 0014/M3 → executing-fields ordered).
+5. **PR shape for implementation** — RESOLVED (2026-06-14): **one PR per delivery branch**, not one per ADR. Two PRs total — `main` (script + skill layer) and `six-pack` (prompts/constitution/conf/root-swarm); no four-pack PR (frozen). Each divergence is an **ordered commit** within its branch (dependency-linear), keeping the single PR tailored. These two initial PRs may be squash-merged (see Sync policy). Full task breakdown: `docs/superpowers/plans/2026-06-14-fork-divergence-implementation.md`.
 
 **Overriding constraint (all items):** keep the diff vs upstream as small as possible — translate to the minimal additive form, do not lift the pre-reset implementation. See `feedback-minimize-upstream-diff` memory.
 </content>
