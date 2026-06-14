@@ -39,6 +39,9 @@ typeset -a SESSIONS=()
 typeset -a DISPLAY_NAMES=()
 typeset -a WORKTREE_NAMES=()
 typeset -a WORKTREE_PATHS=()
+typeset -a ROLE_MODELS=()
+typeset -a ROLE_EFFORTS=()
+typeset -a ROLE_ADVISORS=()
 typeset -A ROLE_INDEX=()
 typeset -A WORKTREE_INDEX=()
 typeset -i CLEANUP_OWNER_INDEX=1
@@ -199,7 +202,7 @@ parse_config() {
 
     local -a fields
     fields=(${=line})
-    if (( ${#fields[@]} != 4 )); then
+    if (( ${#fields[@]} < 4 )); then
       echo -e "${RED}Error:${RESET} Invalid config line $line_no: $line"
       exit 1
     fi
@@ -208,6 +211,18 @@ parse_config() {
     role="${fields[2]}"
     agent="${fields[3]:l}"
     worktree="${fields[4]}"
+
+    local role_model="" role_effort="" role_advisor="" kv key val kv_i
+    for (( kv_i = 5; kv_i <= ${#fields[@]}; kv_i++ )); do
+      kv="${fields[$kv_i]}"
+      key="${kv%%=*}"
+      val="${kv#*=}"
+      case "$key" in
+        model)   role_model="$val" ;;
+        effort)  role_effort="$val" ;;
+        advisor) role_advisor="$val" ;;
+      esac
+    done
 
     if [[ "$keyword" != "window" ]]; then
       echo -e "${RED}Error:${RESET} Unknown config directive on line $line_no: $keyword"
@@ -251,6 +266,9 @@ parse_config() {
     SESSIONS+=("$(session_name_for_role "$role")")
     DISPLAY_NAMES+=("$(display_name_for_role "$role")")
     WORKTREE_NAMES+=("$worktree")
+    ROLE_MODELS+=("$role_model")
+    ROLE_EFFORTS+=("$role_effort")
+    ROLE_ADVISORS+=("$role_advisor")
     if [[ "$worktree" == "none" || "$worktree" == "master" ]]; then
       WORKTREE_PATHS+=("$WORKING_DIR")
     else
@@ -386,6 +404,25 @@ create_role_session() {
   tmux -S "$TMUX_SOCKET" set-window-option -t "$session:$title" allow-rename off
 }
 
+write_worktree_advisor() {
+  local worktree_path="$1"
+  local advisor_model="$2"
+  local settings_dir="$worktree_path/.claude"
+  local settings_file="$settings_dir/settings.local.json"
+
+  mkdir -p "$settings_dir"
+  SETTINGS_FILE="$settings_file" ADVISOR_MODEL="$advisor_model" python3 -c '
+import json, os
+p = os.environ["SETTINGS_FILE"]
+cfg = {}
+try:
+  with open(p) as f: cfg = json.load(f)
+except: pass
+cfg["advisorModel"] = os.environ["ADVISOR_MODEL"]
+with open(p, "w") as f: json.dump(cfg, f, indent=2)
+  '
+}
+
 resolve_prompt_bundle() {
   local role="$1"
   typeset -a bundle=()
@@ -472,8 +509,12 @@ launch_role() {
   local role_script_dir="$role_worktree/swarmforge/scripts"
   local prompt_file="$PROMPTS_DIR/${role}.md"
   local launch_cmd=""
+  local role_model="${ROLE_MODELS[$index]}"
+  local role_effort="${ROLE_EFFORTS[$index]}"
+  local role_advisor="${ROLE_ADVISORS[$index]}"
 
   write_agent_instruction_file "$role" "$prompt_file"
+  [[ -n "$role_advisor" ]] && write_worktree_advisor "$role_worktree" "$role_advisor"
 
   if [[ "$role_worktree" == "$WORKING_DIR" ]]; then
     role_script_dir="$SCRIPT_DIR"
@@ -481,16 +522,27 @@ launch_role() {
 
   case "$agent" in
     claude)
-      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && claude --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}' \"\$(cat '$prompt_file')\""
+      local claude_flags=""
+      [[ -n "$role_model" ]]  && claude_flags+=" --model '$role_model'"
+      [[ -n "$role_effort" ]] && claude_flags+=" --effort '$role_effort'"
+      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && claude${claude_flags} --append-system-prompt-file '$prompt_file' --permission-mode auto -n 'SwarmForge ${display}' \"\$(cat '$prompt_file')\""
       ;;
     codex)
-      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && codex -C '$role_worktree' \"\$(cat '$prompt_file')\""
+      local codex_flags=""
+      [[ -n "$role_model" ]] && codex_flags+=" -c model='$role_model'"
+      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && codex${codex_flags} -C '$role_worktree' \"\$(cat '$prompt_file')\""
       ;;
     copilot)
-      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && copilot -C '$role_worktree' --name 'SwarmForge ${display}' -i \"\$(cat '$prompt_file')\""
+      local copilot_flags=""
+      [[ -n "$role_model" ]]  && copilot_flags+=" --model '$role_model'"
+      [[ -n "$role_effort" ]] && copilot_flags+=" --effort '$role_effort'"
+      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && copilot${copilot_flags} -C '$role_worktree' --name 'SwarmForge ${display}' -i \"\$(cat '$prompt_file')\""
       ;;
     grok)
-      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && grok --cwd '$role_worktree' --permission-mode auto --rules \"\$(cat '$prompt_file')\""
+      local grok_flags=""
+      [[ -n "$role_model" ]]  && grok_flags+=" --model '$role_model'"
+      [[ -n "$role_effort" ]] && grok_flags+=" --effort '$role_effort'"
+      launch_cmd="export SWARMFORGE_ROLE='$role' && export PATH='$role_script_dir':\$PATH && cd '$role_worktree' && grok${grok_flags} --cwd '$role_worktree' --permission-mode auto --rules \"\$(cat '$prompt_file')\""
       ;;
   esac
 
