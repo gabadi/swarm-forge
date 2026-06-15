@@ -213,7 +213,7 @@ parse_config() {
     agent="${fields[3]:l}"
     worktree="${fields[4]}"
 
-    local role_model="" role_effort="" role_advisor="" kv key val kv_i
+    local role_model="" role_effort="" role_advisor="" kv="" key="" val="" kv_i=0
     for (( kv_i = 5; kv_i <= ${#fields[@]}; kv_i++ )); do
       kv="${fields[$kv_i]}"
       key="${kv%%=*}"
@@ -366,10 +366,12 @@ prepare_worktrees() {
 
     if [[ "$role" != "specifier" && "$role" != "QA" ]]; then
       git -C "$worktree_path" sparse-checkout init --no-cone >/dev/null 2>&1
+      local worktree_git_dir
+      worktree_git_dir="$(git -C "$worktree_path" rev-parse --git-dir 2>/dev/null)"
       {
         printf '/*\n'
         printf '!/%s/\n' "$QA_HOLDOUT_PATH"
-      } > "$worktree_path/.git/info/sparse-checkout" 2>/dev/null \
+      } > "${worktree_git_dir}/info/sparse-checkout" 2>/dev/null \
         || git -C "$worktree_path" sparse-checkout set --no-cone '/*' "!/${QA_HOLDOUT_PATH}/" >/dev/null 2>&1
       git -C "$worktree_path" read-tree -mu HEAD >/dev/null 2>&1 || true
     fi
