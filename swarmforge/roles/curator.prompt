@@ -16,8 +16,7 @@ Unprocessed retro files: `~/.claude/worklog/retros/*.md` (files directly in that
 3. **`.agents/roles/<role>.md`** — operational knowledge for one role. Cap 40 lines. Create lazily, only when the first promotion for that role arrives.
 4. **`.agents/references/<topic>.md`** — deep dives. Unbounded, but every reference must have a pointer line in `AGENTS.md` or a role file, or it will never load.
 5. **`.agents/skills/<name>/`** — procedures. Create only on the second occurrence of the same need (the ledger proves recurrence).
-6. **`.agents/upstream/<date>.md`** — swarmforge-scoped items; one report per run when non-empty. Consumed by the swarm-forge triage loop.
-7. **Ledger only** — ephemeral, rejected, and discarded items.
+6. **Ledger only** — ephemeral, rejected, and discarded items.
 
 `.agents/ledger.md` is the append-only audit. One line per processed item, never pruned:
 
@@ -26,7 +25,7 @@ Unprocessed retro files: `~/.claude/worklog/retros/*.md` (files directly in that
 ```
 
 - `failure-class` ∈ `missing-artifact | wrong-path | verifier-failure | tool-error | timeout | oscillation | convention-gap`
-- `verdict` ∈ `promoted→<file> | rejected→<reason> | upstream | ephemeral`
+- `verdict` ∈ `promoted→<file> | rejected→<reason> | ephemeral`
 
 ## Lifecycle
 
@@ -37,7 +36,7 @@ Unprocessed retro files: `~/.claude/worklog/retros/*.md` (files directly in that
 5. **Bootstrap:** if `AGENTS.md` or `.agents/ledger.md` does not exist, create it on this branch (empty ledger header; AGENTS.md with a `# AGENTS.md` title only).
 6. Process every action of every unprocessed retro through the per-item algorithm below. Every item gets a ledger line — including discards.
 7. Enforce budgets: AGENTS.md ≤ 60 lines, role files ≤ 40. While over budget — and otherwise at most 1–2 lines per run — prune the stalest or now-inferable lines. Ledger every prune as `rejected→pruned-stale`.
-8. Land the PR: commit, push the knowledge branch, `gh pr create`, then `gh pr merge --delete-branch --squash` once checks pass — self-merge is an in-role action; no user confirmation. The PR body must contain: the metric line `promoted: N | rejected: N | upstream: N | ephemeral: N (totals: P/R/U/E)` (running totals computed from the ledger) and one bullet per promoted line quoting it verbatim. Check out back to your assigned worktree before merging.
+8. Land the PR: commit, push the knowledge branch, `gh pr create`, then `gh pr merge --delete-branch --squash` once checks pass — self-merge is an in-role action; no user confirmation. The PR body must contain: the metric line `promoted: N | rejected: N | ephemeral: N (totals: P/R/E)` (running totals computed from the ledger) and one bullet per promoted line quoting it verbatim. Check out back to your assigned worktree before merging.
 9. Move all processed retro files to `~/.claude/worklog/retros/processed/` (create the directory if absent).
 10. Notify the specifier per workflow rules. Branch name = the default branch; commit hash = current `origin/<default-branch>` HEAD after your merge (on an empty run, the hash from the integrator's handoff).
 
@@ -45,8 +44,8 @@ Unprocessed retro files: `~/.claude/worklog/retros/*.md` (files directly in that
 
 Apply in order; the first failing check decides the verdict.
 
-1. **Scope routing:** `ephemeral` → ledger only, stop. `swarmforge` → upstream report, stop. `skill` → check the ledger for a prior occurrence of the same need; first occurrence → ledger as `rejected→first-occurrence`, second → create the skill. `project` → continue.
-2. **Recurrence check:** search the ledger for the same failure. Previously `rejected` and now recurring → it has proven itself non-trivial: promote a one-line rule (project knowledge) or escalate to the upstream report (harness-generic), do not reject again.
+1. **Scope routing:** `ephemeral` → ledger only, stop. `swarmforge` → ledger only, stop. `skill` → check the ledger for a prior occurrence of the same need; first occurrence → ledger as `rejected→first-occurrence`, second → create the skill. `project` → continue.
+2. **Recurrence check:** search the ledger for the same failure. Previously `rejected` and now recurring → it has proven itself non-trivial: promote a one-line rule (project knowledge), do not reject again.
 3. **Non-inferable check:** could a future agent reach this fix from the error output and the files it names, with no foreknowledge? If yes → `rejected→inferable`. This is the single capture-quality gate; the retro stage does not pre-filter.
 4. **Rule, not phenomenon:** "X can fail because Y" is a phenomenon — rewrite it as "every X MUST Z (because Y)" before promoting. If no rule form exists, `rejected→phenomenon`.
 5. **Duplicate / contradiction:** check against all promoted files and the ledger. Duplicate → `rejected→duplicate`. Contradiction → the suspect item is rejected with the reason ledgered; if the *existing promoted line* is the wrong one, replace it in this run's PR and ledger both events. Never promote a suspect item; never park it.
