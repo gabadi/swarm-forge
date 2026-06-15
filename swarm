@@ -13,6 +13,33 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ "${1:-}" == "stop" ]]; then
+  STATE_DIR="$SCRIPT_DIR/.swarmforge"
+  CLEANUP_SCRIPT="$SCRIPT_DIR/swarmforge/scripts/swarm-cleanup.sh"
+  if [[ ! -f "$STATE_DIR/tmux-socket" ]]; then
+    echo "No running swarm found (.swarmforge/tmux-socket missing)." >&2
+    exit 1
+  fi
+  if [[ ! -f "$CLEANUP_SCRIPT" ]]; then
+    echo "swarm-cleanup.sh not found — run ./swarm once to bootstrap scripts." >&2
+    exit 1
+  fi
+  _tmux_socket="$(< "$STATE_DIR/tmux-socket")"
+  _sessions=()
+  if [[ -f "$STATE_DIR/sessions.tsv" ]]; then
+    while IFS=$'\t' read -r _ _ _session _; do
+      [[ -n "${_session:-}" ]] && _sessions+=("$_session")
+    done < "$STATE_DIR/sessions.tsv"
+  fi
+  SWARMFORGE_TERMINAL_BACKEND="${SWARMFORGE_TERMINAL_BACKEND:-${SWARMFORGE_TERMINAL:-ghostty}}" \
+    "$CLEANUP_SCRIPT" \
+    "$_tmux_socket" \
+    "$STATE_DIR/window-ids" \
+    "${_sessions[@]+"${_sessions[@]}"}"
+  echo "SwarmForge stopped."
+  exit 0
+fi
+
 if [[ ! -d "$SCRIPT_DIR/swarmforge/scripts" || ! -d "$SCRIPT_DIR/swarmforge/scripts/shared-articles" || ! -d "$SCRIPT_DIR/swarmforge/skills" ]]; then
   TMP_DIR="$(mktemp -d)"
   mkdir -p "$SCRIPT_DIR/swarmforge"
