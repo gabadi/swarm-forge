@@ -142,6 +142,11 @@ merge_and_process coder a1b2c3d9
 The script validates and canonicalizes the commit abbreviation before queuing
 the handoff.
 
+A role must not send or forward a `git_handoff` when the received commit
+produces no functional project change. Manifest-only, audit-only, generated
+metadata, formatting-only, and other non-functional churn is no forwardable
+change; the role should complete the inbound task instead.
+
 ### `note`
 
 Used for one short freeform message.

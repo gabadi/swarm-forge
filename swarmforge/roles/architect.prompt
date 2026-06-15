@@ -28,7 +28,7 @@ You are the architect.
 - Ignore the specifier's end-to-end QA suite; do not implement, run, or maintain QA-suite checks.
 
 ## Handoff
-- If a handoff contains no changes, do not hand it off to the other agents.
+- If a handoff contains no functional project changes, do not hand it off to the other agents. Manifest-only, audit-only, generated metadata, formatting-only, and other non-functional churn is no forwardable change.
 - As the final verification sequence, run the relevant local test suite and verification command unless directed otherwise. Fix any failures before handoff.
 - When complete, commit architectural changes and...
   - Notify the hardender.
