@@ -179,14 +179,19 @@ _do_deliver() {
     tmux_cmd=(tmux -S "$socket" send-keys -t "$target_session")
   fi
 
+  # Wait for Claude Code to finish startup (hook output, welcome overlay, etc.)
+  # before sending any keystrokes — without this, C-m dismisses the overlay
+  # instead of submitting, causing all messages to concatenate in the input bar.
+  sleep 3
+
   # Clear — wait long enough for Claude Code to process the slash command
   "${tmux_cmd[@]}" -l -- '/clear'
   sleep 0.5
   "${tmux_cmd[@]}" C-m
-  sleep 1.5
+  sleep 2.0
 
-  # Re-load persona before delivering — context was wiped by /clear
-  "${tmux_cmd[@]}" -l -- 'Invoke your swarm-persona skill to load your role and begin.'
+  # Re-load persona via slash command before delivering — context was wiped by /clear
+  "${tmux_cmd[@]}" -l -- '/swarm-persona'
   sleep 0.5
   "${tmux_cmd[@]}" C-m
   sleep 2.0
