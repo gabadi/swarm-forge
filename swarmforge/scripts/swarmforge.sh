@@ -563,15 +563,18 @@ write_persona_skill_file() {
   } > "$skill_file"
 }
 
-send_initial_prompt() {
+send_initial_grok_prompt() {
   local session="$1"
   local display="$2"
+  local prompt_file="$3"
 
   (
     sleep 3
-    tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" -l -- 'Invoke your swarm-persona skill to load your role and begin.'
-    sleep 0.5
+    tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" -l -- "$(< "$prompt_file")"
+    sleep 0.15
     tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" C-m
+    sleep 0.05
+    tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" C-j
   ) &!
 }
 
@@ -598,7 +601,7 @@ launch_role() {
 
   case "$agent" in
     claude)
-      write_worktree_settings "$role_worktree" "$role_advisor" "$role_script_dir/swarm-stop.sh"
+      write_worktree_settings "$role_worktree" "$role_advisor"
       local claude_flags=""
       [[ -n "$role_model" ]]  && claude_flags+=" --model ${(q)role_model}"
       [[ -n "$role_effort" ]] && claude_flags+=" --effort ${(q)role_effort}"
@@ -637,6 +640,9 @@ launch_role() {
   fi
 
   tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" "$launch_cmd" Enter
+  if [[ "$agent" == "grok" ]]; then
+    send_initial_grok_prompt "$session" "$display" "$prompt_file"
+  fi
   echo -e "  ${CYAN}[${display}]${RESET} started in session ${session}"
 }
 

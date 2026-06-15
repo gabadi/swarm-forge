@@ -92,17 +92,25 @@
            ".swarmforge" "handoffs" "inbox" "new" filename))
 
 (defn notify! [socket session]
-  (let [send-text (sh "tmux" "-S" socket "send-keys" "-t" session "-l" wake-message)
-        _ (Thread/sleep 150)
-        send-carriage-return (sh "tmux" "-S" socket "send-keys" "-t" session "C-m")
-        _ (Thread/sleep 50)
-        send-line-feed (sh "tmux" "-S" socket "send-keys" "-t" session "C-j")]
-    (when-not (zero? (:exit send-text))
-      (throw (ex-info "tmux send text failed" send-text)))
-    (when-not (zero? (:exit send-carriage-return))
-      (throw (ex-info "tmux send carriage return failed" send-carriage-return)))
-    (when-not (zero? (:exit send-line-feed))
-      (throw (ex-info "tmux send line feed failed" send-line-feed)))))
+  (letfn [(send! [text]
+            (let [r (sh "tmux" "-S" socket "send-keys" "-t" session "-l" text)]
+              (when-not (zero? (:exit r))
+                (throw (ex-info (str "tmux send failed: " text) r)))))
+          (enter! []
+            (let [cr (sh "tmux" "-S" socket "send-keys" "-t" session "C-m")
+                  _ (Thread/sleep 50)
+                  lf (sh "tmux" "-S" socket "send-keys" "-t" session "C-j")]
+              (when-not (zero? (:exit cr))
+                (throw (ex-info "tmux send carriage return failed" cr)))
+              (when-not (zero? (:exit lf))
+                (throw (ex-info "tmux send line feed failed" lf)))))]
+    (send! "/clear")
+    (Thread/sleep 500)
+    (enter!)
+    (Thread/sleep 2000)
+    (send! (str "/swarm-persona " wake-message))
+    (Thread/sleep 150)
+    (enter!)))
 
 (defn move-with-collision [source target-dir]
   (fs/create-dirs target-dir)
