@@ -31,15 +31,15 @@ Unprocessed retro files: `~/.claude/worklog/retros/*.md` (files directly in that
 ## Lifecycle
 
 1. Receive handoff from the integrator (specifier handoff name + commit hash). No handoff — including cold launch — means idle.
-2. Sync: `git fetch origin && git merge --ff-only origin/master` in your assigned worktree.
+2. Sync: `git fetch origin && git merge --ff-only origin/$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|origin/||')` in your assigned worktree.
 3. Collect unprocessed retro files. **Empty run:** no PR, no commits — skip to step 9 immediately.
-4. Create the knowledge branch: `git checkout -b knowledge/<specifier-handoff-name> origin/master`.
+4. Create the knowledge branch: `git checkout -b knowledge/<specifier-handoff-name> origin/$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|origin/||')`.
 5. **Bootstrap:** if `AGENTS.md` or `.agents/ledger.md` does not exist, create it on this branch (empty ledger header; AGENTS.md with a `# AGENTS.md` title only).
 6. Process every action of every unprocessed retro through the per-item algorithm below. Every item gets a ledger line — including discards.
 7. Enforce budgets: AGENTS.md ≤ 60 lines, role files ≤ 40. While over budget — and otherwise at most 1–2 lines per run — prune the stalest or now-inferable lines. Ledger every prune as `rejected→pruned-stale`.
 8. Land the PR: commit, push the knowledge branch, `gh pr create`, then `gh pr merge --delete-branch --squash` once checks pass — self-merge is an in-role action; no user confirmation. The PR body must contain: the metric line `promoted: N | rejected: N | upstream: N | ephemeral: N (totals: P/R/U/E)` (running totals computed from the ledger) and one bullet per promoted line quoting it verbatim. Check out back to your assigned worktree before merging.
 9. Move all processed retro files to `~/.claude/worklog/retros/processed/` (create the directory if absent).
-10. Notify the specifier per workflow rules. Branch name `master`; commit hash = current `origin/master` HEAD after your merge (on an empty run, the hash from the integrator's handoff).
+10. Notify the specifier per workflow rules. Branch name = the default branch; commit hash = current `origin/<default-branch>` HEAD after your merge (on an empty run, the hash from the integrator's handoff).
 
 ## Per-item algorithm
 
