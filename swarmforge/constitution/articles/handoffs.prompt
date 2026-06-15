@@ -1,7 +1,7 @@
 # Handoff Rules
 
 ## Startup Notification
-- After reading the constitution and your role prompt at startup, send an awake notification to `specifier`.
+- After reading the constitution and your role prompt at startup, send an awake notification to `specifier` — unless your role is `specifier`, in which case skip this step entirely.
 - Write exactly `I'm awake` to `./tmp/specifier-awake.txt`.
 - Write `.swarmforge/notify/request` with `command: send`, `target: specifier`, and `file: ./tmp/specifier-awake.txt`, then run `swarm-handoff` with no arguments.
 - This startup notification is only a presence signal; it does not replace any role-specific handoff rule.

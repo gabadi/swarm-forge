@@ -475,6 +475,16 @@ resolve_prompt_bundle() {
       ref_abs="$WORKING_DIR/$ref"
       [[ ${+seen[$ref]} -eq 0 ]] && queue+=("$ref_abs")
     done < <(grep -oE 'swarmforge/[A-Za-z0-9_./-]+\.prompt' "$file" 2>/dev/null || true)
+
+    # When bundling constitution.prompt, also include all articles so agents
+    # don't re-read them at runtime following the "read every file in articles/" directive.
+    if [[ "$file" == */constitution.prompt ]]; then
+      local articles_dir="${WORKING_DIR}/swarmforge/constitution/articles"
+      for article_file in "$articles_dir"/*.prompt(N); do
+        local article_rel="${article_file#${WORKING_DIR}/}"
+        [[ ${+seen[$article_rel]} -eq 0 ]] && queue+=("$article_file")
+      done
+    fi
   done
 
   printf '%s\n' "${bundle[@]}"
