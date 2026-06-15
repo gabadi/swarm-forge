@@ -62,7 +62,15 @@ curl -L "https://github.com/gabadi/swarm-forge/archive/refs/heads/${BRANCH}.tar.
 
 Use `BRANCH=six-pack` instead when you want the six-agent workflow. Do not use `main` for this command; `main` is documentary and stores the shared operational scripts, while the runnable branches provide the configurations and prompts intended for projects.
 
-After copying a runnable branch, run the one-time project setup (requires Claude Code open in the project directory):
+After copying a runnable branch, run `./swarm` once to bootstrap the scripts and install skills into `.claude/skills/`:
+
+```sh
+./swarm
+```
+
+This will print `Error: project is not swarm-ready. Run /setup-swarm first.` — that is expected. The important side effect is that it downloads the shared operational scripts from `main` into `swarmforge/scripts/` and installs the SwarmForge skills into `.claude/skills/`, making `/setup-swarm` available in Claude Code.
+
+Then open Claude Code in the project directory and run the one-time setup skill:
 
 ```sh
 /setup-swarm
@@ -76,7 +84,7 @@ Then launch the swarm:
 ./swarm
 ```
 
-The `./swarm` wrapper keeps the runnable branch small. On first use, if `swarmforge/scripts/` is missing, it downloads the `main` branch archive, copies the shared operational scripts from `swarmforge/scripts/`, stages shared constitution articles from `swarmforge/constitution/articles/`, and then launches `swarmforge/scripts/swarmforge.sh`. Later runs reuse the existing local scripts directory instead of overwriting it.
+The `./swarm` wrapper keeps the runnable branch small. On later runs, if `swarmforge/scripts/` already exists, it skips the download and launches immediately.
 
 The windows should open automatically.
 
