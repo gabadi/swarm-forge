@@ -62,7 +62,15 @@ curl -L "https://github.com/gabadi/swarm-forge/archive/refs/heads/${BRANCH}.tar.
 
 Use `BRANCH=six-pack` instead when you want the six-agent workflow. Do not use `main` for this command; `main` is documentary and stores the shared operational scripts, while the runnable branches provide the configurations and prompts intended for projects.
 
-After copying a runnable branch, start the swarm from the target project:
+After copying a runnable branch, run the one-time project setup (requires Claude Code open in the project directory):
+
+```sh
+/setup-swarm
+```
+
+This installs language-appropriate quality tools, writes permission allow-rules, and scaffolds `.gitignore`. You only need to run it once per project.
+
+Then launch the swarm:
 
 ```sh
 ./swarm
@@ -72,7 +80,13 @@ The `./swarm` wrapper keeps the runnable branch small. On first use, if `swarmfo
 
 The windows should open automatically.
 
-To stop the swarm, close the first window listed in `swarmforge/swarmforge.conf`. That cleanup window shuts down the tmux sessions and closes the remaining tracked windows.
+To stop the swarm:
+
+```sh
+./swarm stop
+```
+
+This kills the tmux sessions and closes all tracked terminal windows. You can also close the first window listed in `swarmforge/swarmforge.conf` for the same effect.
 
 ## What SwarmForge Does
 
@@ -457,6 +471,6 @@ If the backend cannot open sessions at all, set both capability functions to `re
 
 Each visible agent window is attached to a tmux session. That means terminal selection, copy, and paste may follow tmux and terminal-emulator rules rather than ordinary text-field behavior. If copy or paste feels unusual, check whether tmux copy mode is active before assuming the agent is stuck.
 
-The first window in `swarmforge.conf` is the cleanup window. Closing that top configured window is the intentional shutdown path: SwarmForge tears down the tmux sessions, closes the remaining tracked windows, and shuts down the swarm.
+The preferred shutdown path is `./swarm stop`, which kills the tmux sessions and closes all tracked terminal windows. Alternatively, closing the first window listed in `swarmforge.conf` triggers the same teardown via the window watchdog.
 
 Closing any other tracked window is non-destructive. The watchdog reopens that window and attaches it back to the same tmux session, so the agent state and terminal history remain intact. This is often the simplest way to recover a window that has landed in an unfamiliar tmux mode or otherwise feels stuck.
