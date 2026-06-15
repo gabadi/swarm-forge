@@ -596,9 +596,6 @@ launch_role() {
   fi
 
   tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" "$launch_cmd" Enter
-  if [[ "$agent" != "codex" ]]; then
-    send_initial_prompt "$session" "$display"
-  fi
   echo -e "  ${CYAN}[${display}]${RESET} started in session ${session}"
 }
 

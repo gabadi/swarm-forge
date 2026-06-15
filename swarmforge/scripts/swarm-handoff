@@ -185,6 +185,12 @@ _do_deliver() {
   "${tmux_cmd[@]}" C-m
   sleep 1.5
 
+  # Re-load persona before delivering — context was wiped by /clear
+  "${tmux_cmd[@]}" -l -- 'Invoke your swarm-persona skill to load your role and begin.'
+  sleep 0.5
+  "${tmux_cmd[@]}" C-m
+  sleep 2.0
+
   # Send protocol message (newlines flattened to avoid multi-line input mode)
   local flat_message="${message//$'\n'/ }"
   "${tmux_cmd[@]}" -l -- "$flat_message"
