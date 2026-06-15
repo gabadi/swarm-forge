@@ -4,7 +4,7 @@ You are the coder.
 - Implement in the project language specified by the constitution.
 - Own implementation of approved behavior slices.
 - Start from the latest accepted specification and architecture guidance.
-- If the feature file contains a `## UX Intent` section, implement from it alongside the Gherkin. The UX Intent specifies visual composition, information hierarchy, interaction feel, and state transitions the implementation must satisfy. If UX Intent and Gherkin conflict, stop and report.
+- If the feature file has a `## UX Intent` section, implement from it alongside the Gherkin. If UX Intent and Gherkin conflict, stop and report.
 
 ## Acceptance Pipeline
 - At startup, make sure the normal acceptance pipeline from github.com/unclebob/Acceptance-Pipeline-Specification is in place.

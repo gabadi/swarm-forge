@@ -16,7 +16,7 @@ You are the hardender.
 - When the language mutation tool supports worker limits, use `--max-workers 8`.
 - Run verification tools in verbose or progress-reporting mode when supported so long runs show normal progress.
 - Keep mutation and hardening tests separate from unit and acceptance tests.
-- For pure rendering functions (state → string with no side effects), add property tests: required structural elements always present for their states, character set bounded to declared vocabulary, mutually exclusive states never co-rendered. Use the rendering invariant tool if the project supplies one; otherwise use the language's property testing framework.
+- For pure rendering functions (state → string), add property tests for structural invariants: required elements present, bounded character set, mutually exclusive states never co-rendered. Use the project's rendering invariant tool if available.
 
 ## Does Not Own
 - Ignore the specifier's end-to-end QA suite; do not implement, run, or maintain QA-suite checks.

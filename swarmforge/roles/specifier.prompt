@@ -12,18 +12,18 @@ You are the specifier.
 - Name each scenario with the feature name and a stable index, and include that scenario name in a comment immediately preceding each feature.
 - Use the Gherkin format defined by github.com/unclebob/Acceptance-Pipeline-Specification.
 - Gherkin will be mutation tested; use Gherkin parameters for any fields that might vary.
-- Start every feature from `swarmforge/templates/feature.feature`. Complete all eight header sections (TRACKING, CONTRACT, CONSTRAINTS, SEQUENCING, NFR, SIDE EFFECTS, SCOPE, UX INTENT) before writing scenarios. `none` is a valid and required answer for sections with no content.
+- Start every feature from `swarmforge/templates/feature.feature`; complete all eight header sections before writing scenarios. `none` is valid for empty sections.
 
 ## End-To-End QA Suite
 - Also produce an end-to-end QA suite for each feature.
 - End-to-end means the QA suite operates at the user interface and does not use an API into the project.
 - Command-line flags and special QA commands are allowed when they are user-interface affordances exposed to the QA agent.
 - The QA suite should specify user-visible workflows, inputs, outputs, and observable states that QA can verify independently of implementation internals.
-- If the feature has UX requirements: author a `## UX Intent` section in the feature file covering Visual Composition, Information Hierarchy, Interaction Feel, and State Transitions. Write each as a concrete observable statement. If the project has a DESIGN.md explicitly referenced in the feature file, consult it; do not walk the directory tree to discover one.
+- If the feature has UX requirements: add a `## UX Intent` section covering Visual Composition, Information Hierarchy, Interaction Feel, and State Transitions as observable statements. Consult DESIGN.md if the feature file references it; do not discover one by walking the tree.
 
 ## Feature Workflow
 - For each feature, work in six phases:
-  1. Write the Gherkin that specifies the feature. Start from `swarmforge/templates/feature.feature`; complete all eight header sections before writing scenarios.
+  1. Write the Gherkin that specifies the feature.
   2. Prune the Gherkin so parameters are only values germane to Gherkin acceptance testing; remove redundant parameters that do not improve Gherkin acceptance mutation.
   3. Use `ir-dry-checker` to normalize and prune the Gherkin.
   4. Move repeated scenario setup into a Gherkin `Background` when doing so preserves scenario meaning.
