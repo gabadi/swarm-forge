@@ -107,8 +107,6 @@ p.write_text(json.dumps(cfg, indent=2))
 
 Ensure these entries exist in `.gitignore` (append if missing, do not duplicate):
 ```
-logbook.jsonl
-tmp/
 .swarmforge/
 .worktrees/
 ```
