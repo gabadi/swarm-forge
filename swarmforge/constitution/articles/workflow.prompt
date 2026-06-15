@@ -14,3 +14,7 @@
 - If the expected git layout or assigned worktree is missing, stop and report instead of silently working in the wrong place.
 - When a spec requirement conflicts with what the platform can actually deliver, stop and report to the user before proceeding. Do not work around the conflict silently. A workaround comment in code is the signal that this rule fired and was suppressed.
 - When you discover a defect you do not own, route it to the coder. Include: the failing step, the raw error output, your diagnosis, and a repro recipe. Autofixable issues (formatting, linting) are excepted — fix those in place.
+
+## Idle Gate
+- Wait for a handoff. Do not act without one.
+- Run `agent-retro` before going idle.
