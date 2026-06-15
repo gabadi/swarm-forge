@@ -605,12 +605,14 @@ install_skills() {
   echo -e "${CYAN}Installing skills...${RESET}"
   mkdir -p "$STATE_DIR" "$skills_dst"
 
-  if [[ -d "$skills_src/agent-retro" ]]; then
-    rm -rf "$skills_dst/agent-retro"
-    cp -R "$skills_src/agent-retro" "$skills_dst/agent-retro"
-    echo -e "  ${GREEN}✓${RESET} agent-retro"
-  else
-    echo -e "  ${YELLOW}⚠${RESET} agent-retro not found at $skills_src/agent-retro — skipping"
+  if [[ -d "$skills_src" ]]; then
+    for skill_dir in "$skills_src"/*/; do
+      local local_skill_name
+      local_skill_name="$(basename "$skill_dir")"
+      rm -rf "$skills_dst/$local_skill_name"
+      cp -R "$skill_dir" "$skills_dst/$local_skill_name"
+      echo -e "  ${GREEN}✓${RESET} $local_skill_name (local)"
+    done
   fi
 
   local tmp_skills
