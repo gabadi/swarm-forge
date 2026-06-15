@@ -29,4 +29,14 @@ if [[ ! -d "$SCRIPT_DIR/swarmforge/scripts" || ! -d "$SCRIPT_DIR/swarmforge/scri
   fi
 fi
 
+# Install local skills immediately so /setup-swarm is available in Claude Code
+# before swarmforge.sh runs and before setup-complete exists.
+if [[ -d "$SCRIPT_DIR/swarmforge/skills" ]]; then
+  mkdir -p "$SCRIPT_DIR/.claude/skills"
+  for _skill_dir in "$SCRIPT_DIR/swarmforge/skills"/*/; do
+    _skill_name="$(basename "$_skill_dir")"
+    cp -R "$_skill_dir" "$SCRIPT_DIR/.claude/skills/$_skill_name"
+  done
+fi
+
 exec "$SCRIPT_DIR/swarmforge/scripts/swarmforge.sh" "$@"
