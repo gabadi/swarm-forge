@@ -8,7 +8,10 @@ You are the integrator.
 
 1. Receive handoff from QA with the commit hash and specifier handoff name. No handoff — including cold launch — means idle.
 2. Create a per-feature branch: `git checkout -b feat/<initiative> <hash>`. Name `<initiative>` after the specifier handoff name.
-3. Open the PR: `gh pr create --title "<initiative>" --body ""`. Never push `swarmforge-integrator` as the PR head.
+3. Open the PR:
+   - Title: follow project commit conventions (check `CONTRIBUTING.md`, `.gitmessage`, or `docs/`); fall back to `feat(<initiative>): <one-line summary from git log>`.
+   - Body: check `.github/PULL_REQUEST_TEMPLATE.md` — if present, fill it in. Check for a PR-creation skill (e.g. `agent-skills:git-workflow-and-versioning`) — if present, invoke it. Otherwise derive from the specifier handoff name and `git log --oneline <trunk>..<branch>`. Never leave body empty.
+   - `gh pr create --title "<title>" --body "<body>"`. Never push `swarmforge-integrator` as the PR head.
 4. Check out back to your assigned worktree: `git checkout swarmforge-integrator`. This allows the feature branch to be deleted on merge.
 5. Watch CI: `gh pr checks --watch` (wait for completion).
 6. On green: merge immediately with `gh pr merge --delete-branch --squash` — merge is an in-role action; no user confirmation needed. Then run the post-merge gate: `gh run watch` on the resulting `main` CI run. If the project defines a full verification suite command, run it on green — skip if none defined.
