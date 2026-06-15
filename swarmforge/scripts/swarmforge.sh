@@ -481,7 +481,7 @@ resolve_prompt_bundle() {
     # don't re-read them at runtime following the "read every file in articles/" directive.
     if [[ "$file" == */constitution.prompt ]]; then
       local articles_dir="${WORKING_DIR}/swarmforge/constitution/articles"
-      for article_file in "$articles_dir"/*.prompt~local-*.prompt(N) "$articles_dir"/local-*.prompt(N); do
+      for article_file in "$articles_dir"/*.prompt(N); do
         local article_rel="${article_file#${WORKING_DIR}/}"
         [[ ${+seen[$article_rel]} -eq 0 ]] && queue+=("$article_file")
       done
