@@ -53,6 +53,10 @@ Feature: <feature name>
   #   - ASSUMED: <assumption — flag if uncertain>
   #
   # UX INTENT: none
+  # Design artifacts: none
+  # Ask: does the project have DESIGN.md, EXPERIENCE.md, or mockup/wireframe files?
+  #      Check project root and common locations (docs/, design/, assets/).
+  #      List found paths here so the UX Engineer can load them.
   # Ask: does this feature have user-visible rendering, layout, or interaction behaviour?
   #      If yes, author all four dimensions below as concrete observable statements.
   #      Omit if the feature has no UX requirements — absence tells the UX Engineer to skip.

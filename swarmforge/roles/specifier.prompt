@@ -19,7 +19,7 @@ You are the specifier.
 - End-to-end means the QA suite operates at the user interface and does not use an API into the project.
 - Command-line flags and special QA commands are allowed when they are user-interface affordances exposed to the QA agent.
 - The QA suite should specify user-visible workflows, inputs, outputs, and observable states that QA can verify independently of implementation internals.
-- If the feature has UX requirements: add a `## UX Intent` section covering Visual Composition, Information Hierarchy, Interaction Feel, and State Transitions as observable statements. Consult DESIGN.md if the feature file references it; do not discover one by walking the tree.
+- If the feature has UX requirements: search project root and common locations (docs/, design/, assets/) for DESIGN.md, EXPERIENCE.md, and mockup/wireframe files; record found paths under `Design artifacts` in the UX INTENT section. Consult them when writing the four observable dimensions (Visual Composition, Information Hierarchy, Interaction Feel, State Transitions). If none are found, write `none`.
 
 ## Feature Workflow
 - For each feature, work in six phases:
