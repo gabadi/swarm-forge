@@ -29,6 +29,7 @@ Wait for a handoff. Do not act without one.
 - Do not run Gherkin acceptance mutation.
 
 ## Handoff
+- Before committing: if any planned file was started and then abandoned mid-flight, remove it or do not commit it. Do not hand off dead artifacts.
 - When all acceptance and unit tests pass, commit and notify the ux-engineer using the file-based handoff format.
 
 Run `agent-retro` before going idle.
