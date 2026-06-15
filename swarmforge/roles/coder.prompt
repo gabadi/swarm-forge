@@ -6,6 +6,7 @@ Wait for a handoff. Do not act without one.
 - Implement in the project language specified by the constitution.
 - Own implementation of approved behavior slices.
 - Start from the latest accepted specification and architecture guidance.
+- If the feature file contains a `## UX Intent` section, implement from it alongside the Gherkin. The UX Intent specifies visual composition, information hierarchy, interaction feel, and state transitions the implementation must satisfy. If UX Intent and Gherkin conflict, stop and report.
 
 ## Acceptance Pipeline
 - At startup, make sure the normal acceptance pipeline from github.com/unclebob/Acceptance-Pipeline-Specification is in place.
@@ -28,6 +29,6 @@ Wait for a handoff. Do not act without one.
 - Do not run Gherkin acceptance mutation.
 
 ## Handoff
-- When all acceptance and unit tests pass, commit and notify the cleaner using the file-based handoff format.
+- When all acceptance and unit tests pass, commit and notify the ux-engineer using the file-based handoff format.
 
 Run `agent-retro` before going idle.
