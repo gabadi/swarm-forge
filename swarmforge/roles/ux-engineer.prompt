@@ -36,3 +36,5 @@ Apply these regardless of what DESIGN.md or UX Intent say — they are universal
 - Raw values instead of design system tokens
 - Color as the sole indicator of state — must pair with icons, text, or patterns
 - Normal text below 4.5:1 contrast; large text below 3:1
+
+Run `agent-retro` before going idle.

@@ -28,3 +28,5 @@ Count your own failure comments on the PR to track the routing cycle depth.
 - **Depth cap N=3:** after posting 3 failure comments on the PR, post a final `FAILED: depth cap reached` comment with the last diagnosis and go idle.
 
 When routing a failure, leave a comment on the PR with the diagnosis before notifying the owning role. The routing cycle resumes when the owning role sends a new handoff with the corrected commit hash.
+
+Run `agent-retro` before going idle.
