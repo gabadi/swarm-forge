@@ -481,14 +481,25 @@ resolve_prompt_bundle() {
 write_agent_instruction_file() {
   local role="$1"
   local prompt_file="$2"
+  printf 'You are the %s in a SwarmForge multi-agent development swarm. Your full role, constitution, and operating instructions are in your swarm-persona skill. Invoke the swarm-persona skill at the start of every session and before responding to any handoff.\n' "$role" > "$prompt_file"
+}
+
+write_persona_skill_file() {
+  local role="$1"
+  local worktree="$2"
+  local skill_dir="$worktree/.claude/skills/swarm-persona"
+  local skill_file="$skill_dir/SKILL.md"
   typeset -a bundle_files=()
   local rel abs_path knowledge
+
+  mkdir -p "$skill_dir"
 
   while IFS= read -r rel; do
     [[ -n "$rel" ]] && bundle_files+=("$rel")
   done < <(resolve_prompt_bundle "$role")
 
   {
+    printf -- '---\nname: swarm-persona\ndescription: Load this agent'\''s SwarmForge role, constitution, and operating instructions\n---\n\n'
     printf '<swarmforge_agent_context role="%s">\n' "$role"
     printf '<instructions>\n'
     printf 'This prompt bundle is pre-resolved. Do not open or re-read any swarmforge/*.prompt files — all relevant instructions are already included below. Project knowledge files (AGENTS.md and your role file under .agents/roles/) are included below when present.\n'
@@ -508,21 +519,18 @@ write_agent_instruction_file() {
       printf '\n</file>\n'
     done
     printf '</swarmforge_agent_context>\n'
-  } > "$prompt_file"
+  } > "$skill_file"
 }
 
-send_initial_grok_prompt() {
+send_initial_prompt() {
   local session="$1"
   local display="$2"
-  local prompt_file="$3"
 
   (
     sleep 3
-    tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" -l -- "$(< "$prompt_file")"
-    sleep 0.15
+    tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" -l -- 'Invoke your swarm-persona skill to load your role and begin.'
+    sleep 0.5
     tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" C-m
-    sleep 0.05
-    tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" C-j
   ) &!
 }
 
@@ -541,6 +549,7 @@ launch_role() {
   local role_advisor="${ROLE_ADVISORS[$index]}"
 
   write_agent_instruction_file "$role" "$prompt_file"
+  write_persona_skill_file "$role" "$role_worktree"
 
   if [[ "$role_worktree" == "$WORKING_DIR" ]]; then
     role_script_dir="$SCRIPT_DIR"
@@ -587,8 +596,8 @@ launch_role() {
   fi
 
   tmux -S "$TMUX_SOCKET" send-keys -t "$(tmux_agent_target "$session" "$display")" "$launch_cmd" Enter
-  if [[ "$agent" == "grok" ]]; then
-    send_initial_grok_prompt "$session" "$display" "$prompt_file"
+  if [[ "$agent" != "codex" ]]; then
+    send_initial_prompt "$session" "$display"
   fi
   echo -e "  ${CYAN}[${display}]${RESET} started in session ${session}"
 }

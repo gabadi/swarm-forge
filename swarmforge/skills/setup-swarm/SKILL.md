@@ -28,6 +28,12 @@ Ask the operator:
 
 Wait for the operator's answer before proceeding. Do not infer or detect the stack from the repository.
 
+Once the operator answers, stamp the chosen language into the local engineering article so all agents know the project language. Append to `swarmforge/constitution/articles/local-engineering.prompt`:
+```bash
+printf '\n## Project Language\n- Project language: <chosen-language>.\n' >> swarmforge/constitution/articles/local-engineering.prompt
+```
+Where `<chosen-language>` is: `Go`, `Java`, `TypeScript`, `Python`, `Rust`, `Clojure`, or `Ruby` matching the operator's selection.
+
 ---
 
 ## Step 2 — Install quality tools
@@ -109,6 +115,8 @@ Ensure these entries exist in `.gitignore` (append if missing, do not duplicate)
 ```
 .swarmforge/
 .worktrees/
+tmp/
+.claude/skills/swarm-persona/
 ```
 
 Probe the repository's default remote branch:

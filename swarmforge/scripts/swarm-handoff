@@ -143,7 +143,7 @@ resolve_session() {
 }
 
 # _do_deliver — clear-first delivery for a specific target.
-# Always sends /clear, re-injects the bundle, then sends the message.
+# Sends /clear then the message; persona is re-loaded via swarm-persona skill.
 _do_deliver() {
   local target="$1"
   local message_file="$2"
@@ -170,8 +170,6 @@ _do_deliver() {
     export TMUX
   fi
 
-  local bundle_file="$project_dir/.swarmforge/prompts/${target}.md"
-
   local -a tmux_cmd=()
   if [[ -n "${TMUX:-}" ]]; then
     tmux_cmd=(tmux send-keys -t "$target_session")
@@ -181,30 +179,17 @@ _do_deliver() {
     tmux_cmd=(tmux -S "$socket" send-keys -t "$target_session")
   fi
 
-  # Clear
+  # Clear — wait long enough for Claude Code to process the slash command
   "${tmux_cmd[@]}" -l -- '/clear'
-  sleep 0.15
+  sleep 0.5
   "${tmux_cmd[@]}" C-m
-  sleep 0.05
-  "${tmux_cmd[@]}" C-j
-  sleep 1
+  sleep 1.5
 
-  # Re-inject bundle if present
-  if [[ -f "$bundle_file" ]]; then
-    "${tmux_cmd[@]}" -l -- "$(< "$bundle_file")"
-    sleep 0.15
-    "${tmux_cmd[@]}" C-m
-    sleep 0.05
-    "${tmux_cmd[@]}" C-j
-    sleep 0.5
-  fi
-
-  # Send protocol message
-  "${tmux_cmd[@]}" -l -- "$message"
-  sleep 0.15
+  # Send protocol message (newlines flattened to avoid multi-line input mode)
+  local flat_message="${message//$'\n'/ }"
+  "${tmux_cmd[@]}" -l -- "$flat_message"
+  sleep 0.5
   "${tmux_cmd[@]}" C-m
-  sleep 0.05
-  "${tmux_cmd[@]}" C-j
 }
 
 if [[ $# -eq 0 ]]; then
