@@ -15,16 +15,12 @@ Run this skill **once** before invoking `./swarm`. It prepares the project so th
 
 ## Step 1 — Ask the operator for the project stack
 
+Read `swarmforge/constitution/articles/engineering.prompt` and extract the stacks listed under "Language tool table". Present only those stacks as numbered options — do not offer stacks that are not in that table.
+
 Ask the operator:
 
 > Which stack is this project?
-> 1. Go
-> 2. Java / Kotlin (JVM)
-> 3. JavaScript / TypeScript
-> 4. Python
-> 5. Rust
-> 6. Clojure
-> 7. Ruby
+> (list the stacks found in engineering.prompt, numbered)
 
 Wait for the operator's answer before proceeding. Do not infer or detect the stack from the repository.
 
@@ -32,27 +28,13 @@ Once the operator answers, stamp the chosen language into the local engineering 
 ```bash
 printf '\n## Project Language\n- Project language: <chosen-language>.\n' >> swarmforge/constitution/articles/local-engineering.prompt
 ```
-Where `<chosen-language>` is: `Go`, `Java`, `TypeScript`, `Python`, `Rust`, `Clojure`, or `Ruby` matching the operator's selection.
+Where `<chosen-language>` is the language name exactly as it appears in the engineering.prompt tool table entry.
 
 ---
 
 ## Step 2 — Install quality tools
 
-Based on the operator's chosen stack, install the mutation, CRAP, and DRY tools. These are the tools that cleaner, hardener, and QA will use during the swarm run.
-
-**Go:** `go install honnef.co/go/tools/cmd/staticcheck@latest` (CRAP), a mutation tool such as `go-mutesting` if available.
-
-**Java / Kotlin:** Maven or Gradle plugin for PITest (mutation); PMD or SpotBugs (CRAP/DRY).
-
-**JavaScript / TypeScript:** `npm install -g stryker-cli` (mutation); ESLint with complexity rules.
-
-**Python:** `pip install mutmut` (mutation); `radon` (CRAP/DRY metrics).
-
-**Rust:** `cargo install cargo-mutants` (mutation); Clippy is standard and should already be present.
-
-**Clojure:** `clj-kondo` (DRY/complexity); mutation support via the project's own test runner.
-
-**Ruby:** `gem install mutant` (mutation).
+Read the "Language tool table" section of `swarmforge/constitution/articles/engineering.prompt`. For the chosen stack, install the mutation, CRAP, and DRY tools listed there — use the exact repositories and install method specified in that table.
 
 Also install the Acceptance Pipeline Specification (APS) tools:
 ```
