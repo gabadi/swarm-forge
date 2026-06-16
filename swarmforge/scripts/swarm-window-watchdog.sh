@@ -51,6 +51,10 @@ rewrite_window_id() {
   awk -F '\t' '{ print $2 }' "$WINDOW_STATE_FILE" > "$WINDOW_IDS_FILE"
 }
 
+if [[ "${SWARMFORGE_SOURCE_ONLY:-}" == "1" ]]; then
+  return 0
+fi
+
 while [[ -f "$WINDOW_STATE_FILE" ]]; do
   cleanup_session=""
   cleanup_window_id=""
