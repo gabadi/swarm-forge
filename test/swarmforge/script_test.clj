@@ -33,14 +33,8 @@
 (defn tmp-dir []
   (fs/create-temp-dir {:prefix "swarmforge-script-test."}))
 
-(defn zsh
-  ([root source]
-   (zsh root source true))
-  ([root source ok?]
-   (run {:dir root
-         :env {"SCRIPTS_DIR" (str scripts-dir)}
-         :ok? ok?}
-        "zsh" "-c" source)))
+(defn script [name]
+  (str (fs/path scripts-dir name)))
 
 (deftest handoff-lib-parses-and-prints-handoff-files
   (let [root (tmp-dir)
@@ -55,16 +49,14 @@
                        "task: task-alpha\n"
                        "\n"
                        "merge_and_process coder abcdef1234\n"))
-      (let [result (zsh root
-                        (str "source \"$SCRIPTS_DIR/handoff-lib.sh\"\n"
-                             "handoff_header_field task task.handoff\n"
-                             "handoff_body task.handoff\n"
-                             "handoff_print_task task.handoff\n"))]
-        (is (str/includes? (:out result) "task-alpha"))
-        (is (str/includes? (:out result) "merge_and_process coder abcdef1234"))
-        (is (str/includes? (:out result) "TASK: task.handoff"))
-        (is (str/includes? (:out result) "FROM: coder"))
-        (is (str/includes? (:out result) "TASK_NAME: task-alpha")))
+      (let [header (run {:dir root} (script "handoff_lib.bb") "header-field" "task.handoff" "task")
+            body (run {:dir root} (script "handoff_lib.bb") "body" "task.handoff")
+            task (run {:dir root} (script "handoff_lib.bb") "print-task" "task.handoff")]
+        (is (str/includes? (:out header) "task-alpha"))
+        (is (str/includes? (:out body) "merge_and_process coder abcdef1234"))
+        (is (str/includes? (:out task) "TASK: task.handoff"))
+        (is (str/includes? (:out task) "FROM: coder"))
+        (is (str/includes? (:out task) "TASK_NAME: task-alpha")))
       (finally
         (fs/delete-tree root)))))
 
@@ -83,21 +75,18 @@
                        "type: note\n"
                        "\n"
                        "payload\n"))
-      (let [result (zsh root
-                        (str "source \"$SCRIPTS_DIR/handoff-lib.sh\"\n"
-                             "handoff_role_known cleaner\n"
-                             "handoff_role_receive_mode cleaner\n"
-                             "handoff_role_worktree_name cleaner\n"
-                             "handoff_set_header .swarmforge/handoffs/inbox/new/item.handoff dequeued_at 2026-06-16T00:00:00Z\n"
-                             "handoff_header_field dequeued_at .swarmforge/handoffs/inbox/new/item.handoff\n"
-                             "handoff_next_sequence\n"
-                             "printf '\\n'\n"
-                             "handoff_next_sequence\n"))]
-        (is (str/includes? (:out result) "batch"))
-        (is (str/includes? (:out result) "cleaner"))
-        (is (str/includes? (:out result) "2026-06-16T00:00:00Z"))
-        (is (str/includes? (:out result) "000001"))
-        (is (str/includes? (:out result) "000002")))
+      (run {:dir root} (script "handoff_lib.bb") "role-known" "cleaner")
+      (run {:dir root} (script "handoff_lib.bb") "set-header" ".swarmforge/handoffs/inbox/new/item.handoff" "dequeued_at" "2026-06-16T00:00:00Z")
+      (let [mode (run {:dir root} (script "handoff_lib.bb") "role-receive-mode" "cleaner")
+            worktree (run {:dir root} (script "handoff_lib.bb") "role-worktree-name" "cleaner")
+            dequeued (run {:dir root} (script "handoff_lib.bb") "header-field" ".swarmforge/handoffs/inbox/new/item.handoff" "dequeued_at")
+            seq-1 (run {:dir root} (script "handoff_lib.bb") "next-sequence")
+            seq-2 (run {:dir root} (script "handoff_lib.bb") "next-sequence")]
+        (is (str/includes? (:out mode) "batch"))
+        (is (str/includes? (:out worktree) "cleaner"))
+        (is (str/includes? (:out dequeued) "2026-06-16T00:00:00Z"))
+        (is (str/includes? (:out seq-1) "000001"))
+        (is (str/includes? (:out seq-2) "000002")))
       (finally
         (fs/delete-tree root)))))
 
@@ -112,14 +101,7 @@
                        "window cleaner codex cleaner batch\n"))
       (write-file (fs/path root "swarmforge/roles/coder.prompt") "coder\n")
       (write-file (fs/path root "swarmforge/roles/cleaner.prompt") "cleaner\n")
-      (let [result (zsh root
-                        (str "SWARMFORGE_SOURCE_ONLY=1 source \"$SCRIPTS_DIR/swarmforge.sh\" \"$PWD\"\n"
-                             "parse_config\n"
-                             "prepare_workspace\n"
-                             "printf '%s\\n' \"${ROLES[1]} ${DISPLAY_NAMES[1]} ${WORKTREE_PATHS[1]} ${RECEIVE_MODES[1]}\"\n"
-                             "printf '%s\\n' \"${ROLES[2]} ${DISPLAY_NAMES[2]} ${WORKTREE_PATHS[2]} ${RECEIVE_MODES[2]}\"\n"
-                             "cat .swarmforge/roles.tsv\n"
-                             "cat .swarmforge/sessions.tsv\n"))]
+      (let [result (run {:dir root} (script "swarmforge.bb") "--test-parse" (str root))]
         (is (str/includes? (:out result) "coder Coder"))
         (is (str/includes? (:out result) "cleaner Cleaner"))
         (is (str/includes? (:out result) "cleaner batch"))
@@ -138,12 +120,9 @@
                   (str "window coder codex master\n"
                        "window coder codex other\n"))
       (write-file (fs/path root "swarmforge/roles/coder.prompt") "coder\n")
-      (let [result (zsh root
-                        (str "SWARMFORGE_SOURCE_ONLY=1 source \"$SCRIPTS_DIR/swarmforge.sh\" \"$PWD\"\n"
-                             "parse_config\n")
-                        false)]
+      (let [result (run {:dir root :ok? false} (script "swarmforge.bb") "--test-parse" (str root))]
         (is (= 1 (:exit result)))
-        (is (str/includes? (:out result) "Duplicate role 'coder'")))
+        (is (str/includes? (:err result) "Duplicate role 'coder'")))
       (finally
         (fs/delete-tree root)))))
 
@@ -156,16 +135,12 @@
                   (str "1\told-a\tswarmforge-coder\tSwarmForge Coder\n"
                        "2\told-b\tswarmforge-cleaner\tSwarmForge Cleaner\n"))
       (write-file ids-file "old-a\nold-b\n")
-      (let [result (zsh root
-                        (str "SWARMFORGE_SOURCE_ONLY=1 source \"$SCRIPTS_DIR/swarm-window-watchdog.sh\" "
-                             "windows.tsv window-ids 1 /tmp/nonexistent.sock \"$PWD\" none\n"
-                             "rewrite_window_id 2 new-b\n"
-                             "cat windows.tsv\n"
-                             "printf -- '---\\n'\n"
-                             "cat window-ids\n"))]
-        (is (str/includes? (:out result) "1\told-a\tswarmforge-coder\tSwarmForge Coder"))
-        (is (str/includes? (:out result) "2\tnew-b\tswarmforge-cleaner\tSwarmForge Cleaner"))
-        (is (str/includes? (:out result) "old-a\nnew-b\n")))
+      (run {:dir root} (script "swarm-window-watchdog.bb") "--rewrite-window-id" "windows.tsv" "window-ids" "2" "new-b")
+      (let [state (slurp (str state-file))
+            ids (slurp (str ids-file))]
+        (is (str/includes? state "1\told-a\tswarmforge-coder\tSwarmForge Coder"))
+        (is (str/includes? state "2\tnew-b\tswarmforge-cleaner\tSwarmForge Cleaner"))
+        (is (= "old-a\nnew-b\n" ids)))
       (finally
         (fs/delete-tree root)))))
 
