@@ -97,13 +97,9 @@
               (when-not (zero? (:exit r))
                 (throw (ex-info (str "tmux send failed: " text) r)))))
           (enter! []
-            (let [cr (sh "tmux" "-S" socket "send-keys" "-t" session "C-m")
-                  _ (Thread/sleep 50)
-                  lf (sh "tmux" "-S" socket "send-keys" "-t" session "C-j")]
-              (when-not (zero? (:exit cr))
-                (throw (ex-info "tmux send carriage return failed" cr)))
-              (when-not (zero? (:exit lf))
-                (throw (ex-info "tmux send line feed failed" lf)))))]
+            (let [r (sh "tmux" "-S" socket "send-keys" "-t" session "Enter")]
+              (when-not (zero? (:exit r))
+                (throw (ex-info "tmux send Enter failed" r)))))]
     (send! "/clear")
     (Thread/sleep 500)
     (enter!)
