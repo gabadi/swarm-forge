@@ -43,6 +43,7 @@
 
 (defn normalize-terminal-backend [backend]
   (case (str/lower-case backend)
+    ("iterm" "iterm2" "iterm.app") "iterm2"
     ("terminal" "terminal-app" "terminal.app") "terminal-app"
     ("windows" "windows-terminal" "wt") "windows-terminal"
     ("none" "current" "fallback") "none"
@@ -52,7 +53,9 @@
   (if-let [backend (System/getenv "SWARMFORGE_TERMINAL")]
     (normalize-terminal-backend backend)
     (cond
-      (command-exists? "osascript") "terminal-app"
+      (command-exists? "osascript") (if (= (System/getenv "TERM_PROGRAM") "iTerm.app")
+                                      "iterm2"
+                                      "terminal-app")
       (command-exists? "wt.exe") "windows-terminal"
       :else "none")))
 
@@ -215,7 +218,7 @@
    "swarm-terminal-adapter.sh" "swarmforge.sh" "swarmforge.bb"])
 
 (def terminal-helpers
-  ["terminal-app.sh" "ghostty.sh" "windows-terminal.sh" "none.sh"])
+  ["terminal-app.sh" "iterm2.sh" "ghostty.sh" "windows-terminal.sh" "none.sh"])
 
 (defn check-helper-scripts! [ctx]
   (doseq [helper required-helpers]
