@@ -27,5 +27,6 @@ You are the coder.
 - Do not run Gherkin acceptance mutation.
 
 ## Handoff
+- On receiving a handoff, sync to trunk first: `git fetch origin && git reset --hard origin/$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|origin/||')`.
 - Before committing: if any planned file was started and then abandoned mid-flight, remove it or do not commit it. Do not hand off dead artifacts.
 - When all acceptance and unit tests pass, commit and notify the ux-engineer using the file-based handoff format.
