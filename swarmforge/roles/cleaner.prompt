@@ -30,7 +30,6 @@ You are the cleaner.
 - Do not write machine-specific facts (OS-specific tool paths, env var workarounds, missing-tool states) to shared files. Route these to `.claude/local.md` (gitignored, machine-local only).
 
 ## Handoff
-- On receiving a handoff, sync to trunk first: `git fetch origin && git reset --hard origin/$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|origin/||')`.
 - Keep refactors small enough to verify locally.
 - Verify by running acceptance and unit tests.
 - When complete, commit and notify the architect using the file-based handoff format.

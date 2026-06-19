@@ -34,7 +34,6 @@ You are the architect.
 - Ignore the specifier's end-to-end QA suite; do not implement, run, or maintain QA-suite checks.
 
 ## Handoff
-- On receiving a handoff, sync to trunk first: `git fetch origin && git reset --hard origin/$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|origin/||')`.
 - If a handoff contains no changes, do not hand it off to the other agents.
 - As the final verification sequence, run the relevant local test suite and verification command unless directed otherwise. Fix any failures before handoff.
 - When complete, commit architectural changes and...
