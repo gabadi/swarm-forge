@@ -14,10 +14,10 @@ SENDER_BRANCH="swarmforge-${SENDER_ROLE}"
 echo "merge_and_process: fetching origin/${SENDER_BRANCH}..."
 git fetch origin "${SENDER_BRANCH}"
 
-echo "merge_and_process: merging origin/${SENDER_BRANCH} at ${CANONICAL_COMMIT}..."
-if ! git merge --no-ff "origin/${SENDER_BRANCH}"; then
+echo "merge_and_process: merging ${CANONICAL_COMMIT} (from ${SENDER_BRANCH})..."
+if ! git merge --no-ff "${CANONICAL_COMMIT}"; then
   echo "" >&2
-  echo "CONFLICT: merge of origin/${SENDER_BRANCH} into $(git symbolic-ref --short HEAD) failed." >&2
+  echo "CONFLICT: merge of ${CANONICAL_COMMIT} into $(git symbolic-ref --short HEAD) failed." >&2
   echo "Resolve conflicts manually (do NOT use --theirs or --ours), then re-run ready_for_next.sh." >&2
   exit 1
 fi
