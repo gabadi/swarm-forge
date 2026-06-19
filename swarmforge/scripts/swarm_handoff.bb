@@ -78,8 +78,17 @@
     role
     (exit! 1 "Set SWARMFORGE_ROLE.")))
 
+(defn worktree-path-for-role [role]
+  (let [lines (str/split-lines (slurp (str (roles-file))))
+        line  (some (fn [l]
+                      (when (= role (first (str/split l #"\t"))) l))
+                    lines)]
+    (if line
+      (nth (str/split line #"\t") 2)
+      (exit! 1 (format "Role '%s' not found in roles.tsv" role)))))
+
 (defn state-dir []
-  (fs/path (System/getProperty "user.dir") ".swarmforge" "handoffs"))
+  (fs/path (worktree-path-for-role (sender-role)) ".swarmforge" "handoffs"))
 
 (defn timestamp []
   (.format java.time.format.DateTimeFormatter/ISO_INSTANT
