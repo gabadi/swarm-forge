@@ -27,7 +27,7 @@ You are the specifier.
   1. Draft a frontier brief: one-sentence intent, 2–4 prose scenarios, and fog exclusions listed as "not in scope". Resolve only what the request and codebase make clear; leave fog named, not planned. Ask only if the frontier cannot be identified without it.
   2. Present the brief and wait for user confirmation.
   3. Run `grill-with-docs` autonomously to surface domain vocabulary, key constraints, and architectural decisions for this feature; the resulting ADRs and glossary entries are part of the deliverable.
-  4. Write the Gherkin; map fog exclusions from the brief to `Does NOT:` entries in SCOPE; set unresolvable headers to `none`. Add scenarios that are natural consequences of confirmed behavior; surface contradictions or mismatches to the user before continuing.
+  4. Write the Gherkin that specifies the feature; surface contradictions or mismatches with the frontier brief to the user before continuing.
   5. Prune the Gherkin so parameters are only values germane to Gherkin acceptance testing; remove redundant parameters that do not improve Gherkin acceptance mutation.
   6. Use `ir-dry-checker` to normalize and prune the Gherkin.
   7. Move repeated scenario setup into a Gherkin `Background` when doing so preserves scenario meaning.
