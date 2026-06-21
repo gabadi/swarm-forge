@@ -23,6 +23,10 @@
            cfg (-> cfg
                    (assoc-in [:hooks :UserPromptSubmit] [{:hooks [{:type "command" :command (str "touch " marker-path)}]}])
                    (assoc-in [:hooks :Stop] [{:hooks [{:type "command" :command (str "rm -f " marker-path)}]}]))
+           swarm-allow ["Bash(gh pr merge*)" "Bash(git reset --hard origin/*)"]
+           existing-allow (get-in cfg [:permissions :allow] [])
+           cfg (assoc-in cfg [:permissions :allow]
+                         (into existing-allow (remove (set existing-allow) swarm-allow)))
            cfg (if (seq advisor-model)
                  (assoc cfg :advisorModel advisor-model)
                  cfg)]
