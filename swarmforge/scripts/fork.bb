@@ -23,6 +23,10 @@
            cfg (-> cfg
                    (assoc-in [:hooks :UserPromptSubmit] [{:hooks [{:type "command" :command (str "touch " marker-path)}]}])
                    (assoc-in [:hooks :Stop] [{:hooks [{:type "command" :command (str "rm -f " marker-path)}]}]))
+           swarm-allow ["Bash(gh pr merge*)" "Bash(git reset --hard origin/*)"]
+           existing-allow (get-in cfg [:permissions :allow] [])
+           cfg (assoc-in cfg [:permissions :allow]
+                         (into existing-allow (remove (set existing-allow) swarm-allow)))
            cfg (if (seq advisor-model)
                  (assoc cfg :advisorModel advisor-model)
                  cfg)]
@@ -93,8 +97,7 @@
 (defn write-agent-instruction-file! [role prompt-file]
   (spit (str prompt-file)
         (str "You are the " role " in a SwarmForge multi-agent development swarm. "
-             "Your full role, constitution, and operating instructions are in your swarm-persona skill. "
-             "Invoke the swarm-persona skill at the start of every session and before responding to any handoff.\n")))
+             "Your full role, constitution, and operating instructions are in your swarm-persona skill.\n")))
 
 ;;; ADR 0006: Sparse checkout to hide QA holdout from non-QA/specifier worktrees
 

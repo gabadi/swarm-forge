@@ -220,7 +220,7 @@
           (cond
             (str/blank? commit) [nil "Missing required header 'commit' for git_handoff."]
             (not (re-matches #"[0-9a-fA-F]{10}" commit))
-            [nil (format "Header 'commit' must be exactly 10 hexadecimal characters; got '%s'." commit)]
+            [nil (format "Header 'commit' must be exactly 10 hexadecimal characters; got '%s'. Run: git rev-parse --short=10 HEAD" commit)]
             :else (canonical-commit commit))
           [nil nil])
         git-errors (cond-> []
