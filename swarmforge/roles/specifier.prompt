@@ -24,7 +24,7 @@ You are the specifier.
 
 ## Feature Workflow
 - For each feature, work in seven phases:
-  1. Run `grill-with-docs` autonomously to surface domain vocabulary, key constraints, and architectural decisions for this feature; commit the resulting ADRs and glossary entries before proceeding.
+  1. Run `grill-with-docs` autonomously to surface domain vocabulary, key constraints, and architectural decisions for this feature; the resulting ADRs and glossary entries are part of the deliverable.
   2. Write the Gherkin that specifies the feature.
   3. Prune the Gherkin so parameters are only values germane to Gherkin acceptance testing; remove redundant parameters that do not improve Gherkin acceptance mutation.
   4. Use `ir-dry-checker` to normalize and prune the Gherkin.
