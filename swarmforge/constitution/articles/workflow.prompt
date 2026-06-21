@@ -19,3 +19,6 @@
 
 ## Idle Gate
 - Wait for a handoff. Do not act without one.
+
+## Autonomous Sessions
+- Resolve ambiguities from context and act — do not narrate the options considered.
