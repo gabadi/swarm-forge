@@ -126,12 +126,15 @@
              [(str/trim (subs line 0 sep)) (str/trim (subs line (inc sep)))])))
 
 (defn install-skills!
-  "Install local skills and pinned entire skills into .claude/skills/."
+  "Install local skills and pinned entire and mattpocock skills into .claude/skills/."
   [ctx]
   (let [pins-file (fs/path (:script-dir ctx) "install-pins.conf")]
     (when (fs/exists? pins-file)
       (let [pins (parse-pins-file pins-file)
             entire-sha (get pins "ENTIRE_SKILLS_SHA")
+            mattpocock-sha (get pins "MATTPOCOCK_SKILLS_SHA")
+            mattpocock-include (when-let [inc (get pins "MATTPOCOCK_SKILLS_INCLUDE")]
+                                 (set (map str/trim (str/split inc #","))))
             skills-src (fs/path (:script-dir ctx) ".." "skills")
             skills-dst (fs/path (:working-dir ctx) ".claude" "skills")]
         (println (str cyan "Installing skills..." reset))
@@ -163,7 +166,28 @@
                 (spit (str (fs/path (:state-dir ctx) "skills-installed")) entire-sha))
               (do
                 (fs/delete-tree tmp-dir)
-                (println (str "  " yellow "⚠" reset " entire skills unavailable (no network?) — proceeding without them"))))))))))
+                (println (str "  " yellow "⚠" reset " entire skills unavailable (no network?) — proceeding without them"))))))
+        (when mattpocock-sha
+          (let [tmp-dir (str (fs/create-temp-dir))
+                url (str "https://github.com/mattpocock/skills/archive/" mattpocock-sha ".tar.gz")
+                result (process/sh {:continue true} "sh" "-c"
+                                   (str "curl -fsSL " (sq url) " | tar -xz --strip-components=1 -C " (sq tmp-dir)))]
+            (if (zero? (:exit result))
+              (do
+                (let [skills-extracted (fs/path tmp-dir "skills" "engineering")]
+                  (when (fs/exists? skills-extracted)
+                    (doseq [skill-dir (->> (fs/list-dir skills-extracted) (filter fs/directory?))
+                            :let [skill-name (str (fs/file-name skill-dir))]
+                            :when (or (nil? mattpocock-include) (contains? mattpocock-include skill-name))]
+                      (let [dst (fs/path skills-dst skill-name)]
+                        (when (fs/exists? dst) (fs/delete-tree dst))
+                        (fs/copy-tree skill-dir dst)))))
+                (fs/delete-tree tmp-dir)
+                (println (str "  " green "✓" reset " mattpocock skills (" (subs mattpocock-sha 0 8) ")"))
+                (spit (str (fs/path (:state-dir ctx) "mattpocock-skills-installed")) mattpocock-sha))
+              (do
+                (fs/delete-tree tmp-dir)
+                (println (str "  " yellow "⚠" reset " mattpocock skills unavailable (no network?) — proceeding without them"))))))))))
 
 (defn ensure-skills-installed!
   "Install skills if pins changed or first run."
@@ -172,9 +196,14 @@
     (when (fs/exists? pins-file)
       (let [pins (parse-pins-file pins-file)
             entire-sha (get pins "ENTIRE_SKILLS_SHA")
-            sentinel (fs/path (:state-dir ctx) "skills-installed")]
+            mattpocock-sha (get pins "MATTPOCOCK_SKILLS_SHA")
+            sentinel (fs/path (:state-dir ctx) "skills-installed")
+            mattpocock-sentinel (fs/path (:state-dir ctx) "mattpocock-skills-installed")]
         (when-not (and (fs/exists? sentinel)
-                       (= entire-sha (str/trim (slurp (str sentinel)))))
+                       (= entire-sha (str/trim (slurp (str sentinel))))
+                       (or (nil? mattpocock-sha)
+                           (and (fs/exists? mattpocock-sentinel)
+                                (= mattpocock-sha (str/trim (slurp (str mattpocock-sentinel)))))))
           (install-skills! ctx))))))
 
 ;;; ADR 0021: Curator skill links
