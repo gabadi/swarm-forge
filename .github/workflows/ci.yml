@@ -17,8 +17,8 @@ jobs:
           tar xzf babashka-1.12.218-linux-amd64-static.tar.gz
           sudo mv bb /usr/local/bin/
 
-      - name: Install tmux
-        run: sudo apt-get install -y tmux
+      - name: Install dependencies
+        run: sudo apt-get install -y tmux zsh
 
       - name: Run upstream tests
         run: bb test
