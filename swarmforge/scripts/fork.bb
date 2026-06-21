@@ -97,8 +97,7 @@
 (defn write-agent-instruction-file! [role prompt-file]
   (spit (str prompt-file)
         (str "You are the " role " in a SwarmForge multi-agent development swarm. "
-             "Your full role, constitution, and operating instructions are in your swarm-persona skill. "
-             "The harness has already invoked swarm-persona via the wake message — do not invoke it again unless starting cold with no prior /swarm-persona message.\n")))
+             "Your full role, constitution, and operating instructions are in your swarm-persona skill.\n")))
 
 ;;; ADR 0006: Sparse checkout to hide QA holdout from non-QA/specifier worktrees
 
