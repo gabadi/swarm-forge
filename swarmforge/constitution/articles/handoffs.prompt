@@ -66,7 +66,7 @@ message: <one line, max 80 chars>
   current batch in helper-delivered order.
 - Use only the task information printed by the helper scripts.
 - If a tmux wake-up arrives while already working on a task, ignore it.
-- When the task or batch is fully complete, write the downstream handoff draft, then run `agent-retro`, then queue it with `swarm_handoff.sh`, then run `done_with_current.sh`.
+- When the task or batch is fully complete, queue the downstream handoff with `swarm_handoff.sh`, then run `agent-retro`, then run `done_with_current.sh`.
 - `note` handoffs are tasks too; after reading or acting on a note, run
   `done_with_current.sh` before accepting any other handoff.
 - If `done_with_current.sh` prints `TASK: <path>`, treat the printed `PAYLOAD`

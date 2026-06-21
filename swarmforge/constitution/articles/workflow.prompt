@@ -14,7 +14,7 @@
 - If the expected git layout or assigned worktree is missing, stop and report instead of silently working in the wrong place.
 
 ## Task Completion
-- When work is done, write the downstream handoff draft, run `agent-retro`, then queue it with `swarm_handoff.sh`.
+- When work is done, queue the downstream handoff with `swarm_handoff.sh`, then run `agent-retro`.
 - When routing back upstream, commit your findings file before sending `git_handoff` so the commit carries context.
 
 ## Idle Gate
