@@ -311,7 +311,8 @@
 (defn write-agent-instruction-file! [role prompt-file]
   (spit (str prompt-file)
         (str "Read swarmforge/constitution.prompt, then read every file it refers to recursively, and obey all of those instructions.\n"
-             "Read swarmforge/roles/" role ".prompt, then read every file it refers to recursively, and follow all of those instructions.\n")))
+             "Read swarmforge/roles/" role ".prompt, then read every file it refers to recursively, and follow all of those instructions.\n"
+             "If <project root>/.agents/roles/" role ".md exists, read it and obey it — it is the " role " role's accumulated operational knowledge. The curator may update it between iterations, so re-read it at the start of every task.\n")))
 
 (defn extra-args-prefix [row]
   (let [args (:extra-args row)]
