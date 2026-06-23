@@ -13,23 +13,36 @@ metadata:
 
 **Primary path (entire):**
 1. Run `entire session current --json` to get the active session ID and worktree path.
-2. If a session ID is returned:
-   - Run `entire session info <id> --transcript > /tmp/retro-session.jsonl`
-   - Verify: `python3 ${CLAUDE_SKILL_DIR}/scripts/extract.py /tmp/retro-session.jsonl --metadata-only`
-   - If verification succeeds, run full extraction: `python3 ${CLAUDE_SKILL_DIR}/scripts/extract.py /tmp/retro-session.jsonl --summary > /tmp/retro-extract.json`
-   - Proceed to Step 2 with `/tmp/retro-extract.json`.
+2. Check: does `worktree_path` in the result match `$PWD`?
+   - If **NO** (stale result — wrong repo or ended session) → skip `entire session info` entirely; go to **JSONL fallback** below.
+   - If **YES** → proceed:
+     - Run `entire session info <id> --transcript > /tmp/retro-session.jsonl`
+     - Verify: `python3 ${CLAUDE_SKILL_DIR}/scripts/extract.py /tmp/retro-session.jsonl --metadata-only`
+     - If verification succeeds, run full extraction: `python3 ${CLAUDE_SKILL_DIR}/scripts/extract.py /tmp/retro-session.jsonl --summary > /tmp/retro-extract.json`
+     - Proceed to Step 2 with `/tmp/retro-extract.json`.
 
-**Fallback path (Claude Code only):**
-If `entire` is not installed or `entire session current` returns no session:
-1. Look for session pid files in `~/.claude/sessions/*.json`. Read each, match `cwd` to `$PWD`. Take the most recently modified matching entry.
-2. If found: use the `sessionId` to find the transcript in `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`.
-3. If not found via pid: take the most recently modified `.jsonl` in `~/.claude/projects/<encoded-cwd>/`.
-4. Verify: `python3 ${CLAUDE_SKILL_DIR}/scripts/extract.py <path> --metadata-only`
-5. Run full extraction: `python3 ${CLAUDE_SKILL_DIR}/scripts/extract.py <path> --summary > /tmp/retro-extract.json`
+**JSONL fallback (Claude Code only):**
+Use when: `entire` is not installed, `entire session current` returns no session, or `worktree_path` does not match `$PWD`.
+1. Find the Claude Code project dir for this worktree: `ls ~/.claude/projects/ | grep <last-segment-of-PWD>`. Note: dot-prefixed segments encode as double-dash (`.worktrees` → `--worktrees`), so do not use naive `sed` — use `grep` on the last path segment instead.
+2. Take the most recently modified `.jsonl` in that dir: `ls -t ~/.claude/projects/<encoded-cwd>/*.jsonl | head -1`.
+3. Verify: `python3 ${CLAUDE_SKILL_DIR}/scripts/extract.py <path> --metadata-only`
+4. Run full extraction: `python3 ${CLAUDE_SKILL_DIR}/scripts/extract.py <path> --summary > /tmp/retro-extract.json`
 
 **If no transcript is found:** Report "No session transcript found" and stop. Do not fabricate data.
 
 Raw JSONL is 1MB+ per session — never stream transcript bytes inline into context. Always write to a temp file and pass the path to extract.py.
+
+**Null-arc guard:** Before using the arc, check whether content is populated:
+```bash
+python3 -c "
+import json
+d = json.load(open('/tmp/retro-extract.json'))
+arc = d.get('conversation_arc', [])
+non_null = sum(1 for e in arc if e.get('content'))
+print(f'arc entries: {len(arc)}, non-null content: {non_null}')
+"
+```
+If `non_null == 0` and `len(arc) > 0`, `extract.py` silently failed. Fall back to **in-context reconstruction**: write the retro from live session memory — (1) what tool calls succeeded first try, (2) what failed or needed retries, (3) any user corrections or redirects, (4) token budget marked as `(unavailable — extract.py returned no cost data)`. Do not fabricate metrics.
 
 ---
 
