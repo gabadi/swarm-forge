@@ -10,10 +10,9 @@ Promoted knowledge is worthless if it never reaches the agent that needs it. Ups
 
 **Injection is automatic and role-scoped.** When the launcher builds a role's bundle it appends, when the files exist, the root `AGENTS.md` (so every role gets the universal invariants) and that role's `.agents/roles/<role>.md` (so a role gets only its own operational knowledge). References are not injected — they load on demand when an included line points to them, which is why every reference must be pointed at from `AGENTS.md` or a role file. Missing files are silently skipped: a project that has not bootstrapped its knowledge yet launches cleanly with no knowledge blocks.
 
-## Pending implementation
+## Implementation
 
-- `main`: extend the bundle generator to append `AGENTS.md` and `.agents/roles/<role>.md`.
-  - **`.agents/roles/<role>.md` — done** in `write-agent-instruction-file!` (`swarmforge.bb`; `swarmforge.sh` only `exec bb`s it). Referenced *by path* (`<project root>/.agents/roles/<role>.md`) with an "if it exists" guard rather than inlined — so it is optional (silently skipped when absent), role-scoped, and dynamic: the agent re-reads it at the start of every task, so mid-run curator updates land in the next iteration.
-  - **`AGENTS.md` — still pending.** For claude agents it already loads natively via `CLAUDE.md`; injecting it for non-claude backends is deferred to keep this change to the single role-file line.
+- **`.agents/roles/<role>.md` — done** in `write-agent-instruction-file!` (`swarmforge.bb`; `swarmforge.sh` only `exec bb`s it). Referenced *by path* (`<project root>/.agents/roles/<role>.md`) with an "if it exists" guard rather than inlined — so it is optional (silently skipped when absent), role-scoped, and dynamic: the agent re-reads it at the start of every task, so mid-run curator updates land in the next iteration.
+- **`AGENTS.md` — included by default by the harness.** The Claude Code harness loads `AGENTS.md` natively for every agent; no explicit injection step is needed.
 - Acceptance: a scratch project with an `AGENTS.md` → every generated bundle carries it; adding `.agents/roles/coder.md` → only the coder's bundle gains it; removing both → bundles generate with no knowledge blocks and no errors.
 - Pairs with ADR 0013 (the curator is the only writer of this contract).
