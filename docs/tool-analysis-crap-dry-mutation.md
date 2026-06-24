@@ -9,9 +9,9 @@
 
 | Stack | CRAP | DRY | Mutation |
 |-------|------|-----|----------|
-| **JS/TS** | `crap4js` v0.1.0 — **done** | `drywall` — **done** | `mutate` Rust binary — **todo** |
-| **Python** | `crap4py` — **todo** | `drywall` — **done** | `mutate4py` — **todo** |
-| **Rust** | `cargo-crap` — **reuse** | `drywall` — **done** | `mutate4rs` Rust binary — **todo** |
+| **JS/TS** | `crap4js` v0.1.0 — **done** | `drywall` — **done** | `mutate4js` npm — **todo** |
+| **Python** | `crap4py` v0.1.1 — **done** | `drywall` — **done** | `mutate4py` PyPI — **todo** |
+| **Rust** | `cargo-crap` — **reuse** | `drywall` — **done** | `mutate4rs` crate — **todo** |
 
 ---
 
@@ -30,6 +30,12 @@
 - Implements Uncle Bob's AST subtree Jaccard algorithm
 - Drop-in CLI compatible with dry4go
 
+### crap4py v0.1.1
+- **Install:** `pip install crap4py`
+- **Source:** `github.com/gabadi/crap4py`
+- Python source analysis via stdlib `ast` module
+- Branch coverage from LCOV (pytest-cov / coverage.py)
+
 ### cargo-crap
 - Reuse as-is (pre-1.0 but functional)
 - Requires lcov.info from `cargo llvm-cov --lcov`
@@ -38,30 +44,35 @@
 
 ## 2. What to Build
 
-### 2.1 crap4py — Python CRAP script (~200 LOC)
+### 2.1 crap4py — **done** (PyPI v0.1.1)
 
-New implementation for Python source. Not a port of crap4go (which analyzes Go source) —
-crap4py analyzes Python source using Python's own `ast` module.
+- **Install:** `pip install crap4py`
+- **Source:** `github.com/gabadi/crap4py`
+- Analyzes Python source using Python's own `ast` module
+- Branch coverage via LCOV (pytest-cov / coverage.py with `branch = True`)
+- Output matches crap4go column format — Function, Module, CC, Cov%, CRAP — sorted worst first
 
-**Inputs:**
-- Python source files (walked from a root directory)
-- LCOV tracefile (from pytest-cov or coverage.py with `branch = True` in `.coveragerc`)
+### 2.2 mutate4js — JS/TS mutation (npm)
 
-**Output:** same column format as crap4go — Function, Module, CC, Cov%, CRAP — sorted worst first
-
-**CC decision points in Python AST:**
-`If`, `IfExp` (ternary), `BoolOp` (`and`/`or`), `For`, `While`, `ExceptHandler`, each `match case`
-
-**Branch coverage:** reads `BRDA:` records from LCOV; `cov(m) = BRH_in_range / BRF_in_range × 100`
-
-### 2.2 mutate — Rust binary (JS/TS + Rust)
-
-One binary, two language targets. Ports mutate4go's algorithm to JS/TS and Rust.
-OXC parser is already used in drywall — this reuses the same investment.
+- **Distribution:** npm package (`npm install --save-dev mutate4js`)
+- **Parser:** OXC (already used in drywall — same investment)
+- **Manifest comment style:** `// mutate4js-manifest: version=1`
 
 ```
-mutate --lang <js|ts|rs> [flags] path/to/file
+mutate4js [flags] path/to/file
 ```
+
+### 2.3 mutate4rs — Rust mutation (crate)
+
+- **Distribution:** cargo crate (`cargo install mutate4rs`)
+- **Parser:** `syn` (higher semantic fidelity for Rust source)
+- **Manifest comment style:** `// mutate4rs-manifest: version=1`
+
+```
+mutate4rs [flags] path/to/file.rs
+```
+
+**Shared flags (mutate4js + mutate4rs + mutate4py):**
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -74,7 +85,7 @@ mutate --lang <js|ts|rs> [flags] path/to/file
 | `--scan` | false | Count mutation sites only, no tests |
 | `--verbose` | false | Log actions to stderr |
 
-### 2.3 mutate4py — Python mutation script
+### 2.4 mutate4py — Python mutation script
 
 Same algorithm as the Rust binary, for Python source.
 Uses Python's `ast` module. Reads LCOV from pytest-cov / coverage.py.
@@ -113,11 +124,13 @@ crap4go analyzes **Go** source. crap4py analyzes **Python** source. They impleme
 same CRAP formula but are completely separate tools using their language's native AST.
 There is no Python port of crap4go to reuse — it does not exist.
 
-### Why one mutate binary covers JS/TS and Rust
+### Why mutate4js, mutate4rs, and mutate4py are separate tools
 
-OXC (JS/TS parser) and `syn` (Rust parser) are both Rust crates. Building them in one
-binary reuses the OXC investment already made for drywall and avoids distributing two
-separate binaries.
+Each tool is distributed through its language's native registry (npm / crates.io / PyPI),
+matching the pattern established by crap4js, cargo-crap, and crap4py. A JS developer
+should be able to `npm install mutate4js` without cargo; a Rust developer `cargo install mutate4rs`
+without Node. Implementation may share a common Rust library (OXC + syn), but the
+distribution is language-native.
 
 ---
 
