@@ -9,8 +9,8 @@
 
 | Stack | CRAP | DRY | Mutation |
 |-------|------|-----|----------|
-| **JS/TS** | `crap4js` v0.1.0 — **done** | `drywall` — **done** | `mutate4js` npm — **todo** |
-| **Python** | `crap4py` v0.1.1 — **done** | `drywall` — **done** | `mutate4py` PyPI — **todo** |
+| **JS/TS** | `crap4js` v0.1.0 — **done** | `drywall` — **done** | `mutate4js` npm — **scaffold** (`gabadi/mutate4js`) |
+| **Python** | `crap4py` v0.1.1 — **done** | `drywall` — **done** | `mutate4py` PyPI — **scaffold** (`gabadi/mutate4py`) |
 | **Rust** | `cargo-crap` — **reuse** | `drywall` — **done** | `mutate4rs` crate — **todo** |
 
 ---
@@ -85,16 +85,33 @@ mutate4rs [flags] path/to/file.rs
 | `--scan` | false | Count mutation sites only, no tests |
 | `--verbose` | false | Log actions to stderr |
 
-### 2.4 mutate4py — Python mutation script
+### 2.4 mutate4py — Python mutation tool — **scaffold** (`gabadi/mutate4py`)
 
-Same algorithm as the Rust binary, for Python source.
-Uses Python's `ast` module. Reads LCOV from pytest-cov / coverage.py.
+Repo scaffolded with the swarm six-pack + `entire` (checkpoints →
+`gabadi/mutate4py-entire`). The authoritative design lives in that repo's
+`docs/spec.md` — a faithful `mutate4go` port with the user-facing contract
+cross-checked against `unclebob/clj-mutate`. §3–§5 below are **superseded** by it.
 
 ```
 mutate4py [flags] path/to/file.py
 ```
 
-Same flags as `mutate`.
+Locked `[PY]` divergences (see repo spec for full rationale):
+
+- **Serial only — `--max-workers` removed.** The copy-isolated-worker model is
+  unsound under Python editable installs (`pip install -e .`); mutation is in-place.
+- **Coverage acquired explicitly** via `--lcov` / `--cov-cmd` / `--reuse-coverage`
+  (no universal Go `-coverprofile` equivalent); reads LCOV from coverage.py.
+- **Manifest hash = `ast.dump()`** (structural), not whitespace-collapse —
+  Python's indentation is significant.
+- **Operators localized:** core set + `and`/`or` + `True`/`False` + comparison
+  negation flips `==`/`!=`, `is`/`is not`, `in`/`not in`.
+- **`--test-command` defaults to `pytest`.**
+- Substrate: stdlib `ast`, hatchling/PyPI, `uvx` (mirrors `crap4py`).
+
+Note: the `mutate4js` grilling also reversed one decision **upstream** — the JS
+port should add `===`/`!==` (the dominant idiomatic equality operator), by the same
+localize-per-language principle.
 
 ---
 
