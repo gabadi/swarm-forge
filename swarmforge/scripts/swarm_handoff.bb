@@ -280,7 +280,7 @@
 (defn body [type sender canonical-commit note-message]
   (case type
     "awake" "awake"
-    "git_handoff" (str "Re-read your role and constitution.\n\nmerge_and_process " sender " " canonical-commit)
+    "git_handoff" (str "Re-read your role and constitution.\n\nRun: git merge " canonical-commit "\nThen do your role-specific work per your role file.")
     "note" (str "Re-read your role and constitution.\n\n" note-message)))
 
 (defn write-handoff! [{:keys [headers recipients canonical-commit sender]}]
