@@ -29,8 +29,16 @@ if [[ -f "$DAEMON_PID_FILE" ]]; then
   fi
 fi
 
+STATE_DIR="$WORKING_DIR/.swarmforge"
+HERDR_PANES_DIR="$STATE_DIR/herdr-panes"
+
 for session in "$@"; do
-  tmux -S "$TMUX_SOCKET" kill-session -t "$session" 2>/dev/null || true
+  if [[ -f "$HERDR_PANES_DIR/$session" ]]; then
+    pane_id="$(head -1 "$HERDR_PANES_DIR/$session")"
+    herdr pane close "$pane_id" 2>/dev/null || true
+  else
+    tmux -S "$TMUX_SOCKET" kill-session -t "$session" 2>/dev/null || true
+  fi
 done
 
 sleep 1

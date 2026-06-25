@@ -52,6 +52,7 @@
     ("iterm" "iterm2" "iterm.app") "iterm2"
     ("terminal" "terminal-app" "terminal.app") "terminal-app"
     ("windows" "windows-terminal" "wt") "windows-terminal"
+    ("herdr") "herdr"
     ("none" "current" "fallback") "none"
     (str/lower-case backend)))
 
@@ -59,11 +60,16 @@
   (if-let [backend (System/getenv "SWARMFORGE_TERMINAL")]
     (normalize-terminal-backend backend)
     (cond
+      (and (.exists (java.io.File. (str (System/getenv "HOME") "/.config/herdr/herdr.sock")))
+           (command-exists? "herdr")) "herdr"
       (command-exists? "osascript") (if (= (System/getenv "TERM_PROGRAM") "iTerm.app")
                                       "iterm2"
                                       "terminal-app")
       (command-exists? "wt.exe") "windows-terminal"
       :else "none")))
+
+(defn herdr-backend? [ctx]
+  (= "herdr" (:terminal-backend ctx)))
 
 (defn display-name-for-role [role]
   (->> (str/split (str/replace role #"[-_]" " ") #"\s+")
@@ -235,7 +241,7 @@
    "swarm-terminal-adapter.sh" "swarmforge.sh" "swarmforge.bb"])
 
 (def terminal-helpers
-  ["terminal-app.sh" "iterm2.sh" "ghostty.sh" "windows-terminal.sh" "none.sh"])
+  ["terminal-app.sh" "iterm2.sh" "ghostty.sh" "windows-terminal.sh" "none.sh" "herdr.sh"])
 
 (defn check-helper-scripts! [ctx]
   (doseq [helper required-helpers]
@@ -248,10 +254,13 @@
         (fail! (str red "Error:" reset " Required terminal adapter not found or not executable: " path))))))
 
 (defn prepare-workspace! [ctx]
-  (doseq [dir [(:state-dir ctx) (:notify-dir ctx) (:prompts-dir ctx)
-               (:worktrees-dir ctx) (:tmux-socket-dir ctx) (:daemon-dir ctx)]]
+  (doseq [dir (cond-> [(:state-dir ctx) (:notify-dir ctx) (:prompts-dir ctx)
+                       (:worktrees-dir ctx) (:daemon-dir ctx)]
+                (not (herdr-backend? ctx)) (conj (:tmux-socket-dir ctx))
+                (herdr-backend? ctx) (conj (:herdr-panes-dir ctx)))]
     (fs/create-dirs dir))
-  (spit (str (:tmux-socket-file ctx)) (str (:tmux-socket ctx) "\n"))
+  (when-not (herdr-backend? ctx)
+    (spit (str (:tmux-socket-file ctx)) (str (:tmux-socket ctx) "\n")))
   (check-helper-scripts! ctx)
   (write-sessions-file! ctx)
   (write-roles-file! ctx))
@@ -291,8 +300,12 @@
       (fs/create-dirs (fs/path role-state-dir "notify"))
       (fs/copy (:sessions-file ctx) (fs/path role-state-dir "sessions.tsv") {:replace-existing true})
       (fs/copy (:roles-file ctx) (fs/path role-state-dir "roles.tsv") {:replace-existing true})
-      (fs/copy (:tmux-socket-file ctx) (fs/path role-state-dir "tmux-socket") {:replace-existing true})
-      (fs/copy (:tmux-env-file ctx) (fs/path role-state-dir "tmux-env") {:replace-existing true})
+      (if (herdr-backend? ctx)
+        (when (fs/exists? (:herdr-panes-dir ctx))
+          (fs/copy-tree (:herdr-panes-dir ctx) (fs/path role-state-dir "herdr-panes") {:replace-existing true}))
+        (do
+          (fs/copy (:tmux-socket-file ctx) (fs/path role-state-dir "tmux-socket") {:replace-existing true})
+          (fs/copy (:tmux-env-file ctx) (fs/path role-state-dir "tmux-env") {:replace-existing true})))
       (link-curator-skills! worktree-path))))
 
 (defn check-dependency! [command]
@@ -303,10 +316,29 @@
   (doseq [agent (map :agent (:roles ctx))]
     (check-dependency! agent)))
 
-(defn create-role-session! [ctx session title]
-  (sh "tmux" "-S" (:tmux-socket ctx) "new-session" "-d" "-s" session "-n" agent-window)
-  (sh "tmux" "-S" (:tmux-socket ctx) "rename-window" "-t" (str session ":" agent-window) title)
-  (sh "tmux" "-S" (:tmux-socket ctx) "set-window-option" "-t" (str session ":" title) "allow-rename" "off"))
+(defn create-herdr-tab! [ctx session title worktree-path]
+  (let [output (sh-out "herdr" "tab" "create" "--label" (str "SF - " title) "--cwd" (str worktree-path))
+        tab-id (sh-out "sh" "-c" (str "printf '%s' " (sq output) " | jq -r '.result.tab.tab_id'"))
+        pane-id (sh-out "sh" "-c" (str "printf '%s' " (sq output) " | jq -r '.result.root_pane.pane_id'"))]
+    (when (or (str/blank? pane-id) (= pane-id "null"))
+      (fail! (str "Failed to create herdr tab for session " session)))
+    (let [pane-file (fs/path (:herdr-panes-dir ctx) session)]
+      (fs/create-dirs (:herdr-panes-dir ctx))
+      (spit (str pane-file) (str pane-id "\n" tab-id "\n")))
+    pane-id))
+
+(defn herdr-pane-id [ctx session]
+  (let [pane-file (fs/path (:herdr-panes-dir ctx) session)]
+    (when (fs/exists? pane-file)
+      (first (str/split-lines (slurp (str pane-file)))))))
+
+(defn create-role-session! [ctx session title worktree-path]
+  (if (herdr-backend? ctx)
+    (create-herdr-tab! ctx session title worktree-path)
+    (do
+      (sh "tmux" "-S" (:tmux-socket ctx) "new-session" "-d" "-s" session "-n" agent-window)
+      (sh "tmux" "-S" (:tmux-socket ctx) "rename-window" "-t" (str session ":" agent-window) title)
+      (sh "tmux" "-S" (:tmux-socket ctx) "set-window-option" "-t" (str session ":" title) "allow-rename" "off"))))
 
 (defn write-agent-instruction-file! [role prompt-file]
   (spit (str prompt-file)
@@ -351,13 +383,17 @@
 (defn launch-role! [ctx index row]
   (let [session (:session row)
         display (:display-name row)
-        prompt-file (fs/path (:prompts-dir ctx) (str (:role row) ".md"))
         command (launch-command ctx index row)]
     (write-persona-skill-file! ctx (:role row) (:worktree-path row))
     (write-worktree-settings! (:worktree-path row) (or (:advisor row) ""))
-    (sh "tmux" "-S" (:tmux-socket ctx) "send-keys" "-t"
-        (tmux-agent-target display (:tmux-pane-base-index ctx) session)
-        command "Enter")
+    (if (herdr-backend? ctx)
+      (let [pane-id (herdr-pane-id ctx session)]
+        (Thread/sleep 300)
+        (sh "herdr" "pane" "send-text" pane-id command)
+        (sh "herdr" "pane" "send-keys" pane-id "Enter"))
+      (sh "tmux" "-S" (:tmux-socket ctx) "send-keys" "-t"
+          (tmux-agent-target display (:tmux-pane-base-index ctx) session)
+          command "Enter"))
     (println (str "  " cyan "[" display "]" reset " started in session " session))))
 
 (defn stop-handoff-daemon! [ctx]
@@ -462,6 +498,7 @@
      :tmux-env-file (fs/path state-dir "tmux-env")
      :tmux-window-base-index 0
      :tmux-pane-base-index 0
+     :herdr-panes-dir (fs/path state-dir "herdr-panes")
      :qa-holdout-path (or (System/getenv "SWARMFORGE_QA_HOLDOUT_PATH") "qa-e2e")}))
 
 (defn prepare-ctx [ctx]
@@ -480,14 +517,16 @@
     (print (slurp (str (:sessions-file ctx))))))
 
 (defn run-main! [root]
-  (check-dependency! "tmux")
   (check-dependency! "git")
   (check-dependency! "bb")
-  (let [ctx (-> (context root)
-                detect-tmux-base-indexes)]
+  (let [backend (detect-terminal-backend)
+        ctx (cond-> (context root)
+              (not= "herdr" backend) detect-tmux-base-indexes)]
+    (when-not (= "herdr" backend)
+      (check-dependency! "tmux"))
     (initialize-git-repo! ctx)
     (ensure-runtime-git-excludes! ctx)
-    (let [ctx (prepare-ctx ctx)]
+    (let [ctx (assoc (prepare-ctx ctx) :terminal-backend backend)]
       (check-backend-dependencies! ctx)
       (prepare-workspace! ctx)
       (ensure-skills-installed! ctx)
@@ -495,38 +534,44 @@
         (fail! (str red "Error:" reset " project is not swarm-ready. Run /setup-swarm first.")))
       (prepare-worktrees! ctx)
       (prepare-handoff-dirs! ctx)
-      (let [ctx (assoc ctx :terminal-backend (detect-terminal-backend))]
-        (stop-handoff-daemon! ctx)
-        (doseq [row (:roles ctx)]
+      (stop-handoff-daemon! ctx)
+      (doseq [row (:roles ctx)]
+        (if (herdr-backend? ctx)
+          (when-let [pane-id (herdr-pane-id ctx (:session row))]
+            (sh-ok? "herdr" "pane" "close" pane-id))
           (when (sh-ok? "tmux" "-S" (:tmux-socket ctx) "has-session" "-t" (:session row))
             (println (str yellow "Existing SwarmForge session found: " (:session row) ". Killing it..." reset))
-            (sh "tmux" "-S" (:tmux-socket ctx) "kill-session" "-t" (:session row))))
-        (println (str cyan bold))
-        (println "  SwarmForge v1.0 Starting")
-        (println "  Disciplined agents build better software")
-        (println reset)
-        (println (str green "Launching SwarmForge tmux sessions..." reset))
-        (doseq [row (:roles ctx)]
-          (create-role-session! ctx (:session row) (:display-name row)))
-        (write-tmux-env-file! ctx)
-        (sync-worktree-scripts! ctx)
-        (start-handoff-daemon! ctx)
-        (println (str green "Starting agents..." reset))
-        (let [delay-ms (env-long "SWARMFORGE_AGENT_START_DELAY_MS" 1500)]
-          (doseq [[index row] (map-indexed vector (:roles ctx))]
-            (when (pos? index)
-              (Thread/sleep delay-ms))
-            (launch-role! ctx index row)))
-        (println)
-        (println (str green bold "SwarmForge is ready." reset))
-        (println "Working directory:" (str (:working-dir ctx)))
-        (println "Sessions:")
-        (doseq [row (:roles ctx)]
-          (println (str "  " (:display-name row) ": " (:session row))))
-        (println)
-        (println (str green "Tip: Write a handoff draft and run swarm_handoff.sh while the swarm is running." reset))
-        (println (str green "Tip: Reattach manually with 'tmux -S " (:tmux-socket ctx) " attach-session -t <session-name>' if needed." reset))
-        (println)
+            (sh "tmux" "-S" (:tmux-socket ctx) "kill-session" "-t" (:session row)))))
+      (println (str cyan bold))
+      (println "  SwarmForge v1.0 Starting")
+      (println "  Disciplined agents build better software")
+      (println reset)
+      (println (str green "Launching SwarmForge " (if (herdr-backend? ctx) "herdr" "tmux") " sessions..." reset))
+      (doseq [row (:roles ctx)]
+        (create-role-session! ctx (:session row) (:display-name row) (:worktree-path row)))
+      (when-not (herdr-backend? ctx)
+        (write-tmux-env-file! ctx))
+      (sync-worktree-scripts! ctx)
+      (start-handoff-daemon! ctx)
+      (println (str green "Starting agents..." reset))
+      (let [delay-ms (env-long "SWARMFORGE_AGENT_START_DELAY_MS" 1500)]
+        (doseq [[index row] (map-indexed vector (:roles ctx))]
+          (when (pos? index)
+            (Thread/sleep delay-ms))
+          (launch-role! ctx index row)))
+      (println)
+      (println (str green bold "SwarmForge is ready." reset))
+      (println "Working directory:" (str (:working-dir ctx)))
+      (println "Sessions:")
+      (doseq [row (:roles ctx)]
+        (println (str "  " (:display-name row) ": " (:session row))))
+      (println)
+      (println (str green "Tip: Write a handoff draft and run swarm_handoff.sh while the swarm is running." reset))
+      (if (herdr-backend? ctx)
+        (println (str green "Tip: Switch to a herdr space to view any agent." reset))
+        (println (str green "Tip: Reattach manually with 'tmux -S " (:tmux-socket ctx) " attach-session -t <session-name>' if needed." reset)))
+      (println)
+      (when-not (herdr-backend? ctx)
         (open-terminal-surfaces! ctx)))))
 
 (defn test-terminal-bridge! [root backend]
