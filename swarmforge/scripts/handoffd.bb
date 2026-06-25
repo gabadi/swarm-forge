@@ -22,6 +22,12 @@
 (def daemon-dir (fs/path state-dir "daemon"))
 (def roles-file (fs/path state-dir "roles.tsv"))
 (def socket-file (fs/path state-dir "tmux-socket"))
+(def herdr-panes-dir (fs/path state-dir "herdr-panes"))
+
+(defn herdr-pane-id [session]
+  (let [pane-file (fs/path herdr-panes-dir session)]
+    (when (fs/exists? pane-file)
+      (first (str/split-lines (slurp (str pane-file)))))))
 (def pid-file (fs/path daemon-dir "handoffd.pid"))
 (def stop-file (fs/path daemon-dir "stop"))
 (def log-file (fs/path daemon-dir "handoffd.log"))
@@ -91,7 +97,24 @@
   (fs/path (:worktree-path role-info)
            ".swarmforge" "handoffs" "inbox" "new" filename))
 
-(defn notify! [socket session]
+(defn notify-herdr! [pane-id]
+  (letfn [(send! [text]
+            (let [r (sh "herdr" "pane" "send-text" pane-id text)]
+              (when-not (zero? (:exit r))
+                (throw (ex-info (str "herdr send failed: " text) r)))))
+          (enter! []
+            (let [r (sh "herdr" "pane" "send-keys" pane-id "Enter")]
+              (when-not (zero? (:exit r))
+                (throw (ex-info "herdr send Enter failed" r)))))]
+    (send! "/clear")
+    (Thread/sleep 500)
+    (enter!)
+    (Thread/sleep 2000)
+    (send! (str "/swarm-persona " wake-message))
+    (Thread/sleep 150)
+    (enter!)))
+
+(defn notify-tmux! [socket session]
   (letfn [(send! [text]
             (let [r (sh "tmux" "-S" socket "send-keys" "-t" session "-l" text)]
               (when-not (zero? (:exit r))
@@ -107,6 +130,11 @@
     (send! (str "/swarm-persona " wake-message))
     (Thread/sleep 150)
     (enter!)))
+
+(defn notify! [socket session]
+  (if-let [pane-id (herdr-pane-id session)]
+    (notify-herdr! pane-id)
+    (notify-tmux! socket session)))
 
 (defn move-with-collision [source target-dir]
   (fs/create-dirs target-dir)
@@ -158,7 +186,7 @@
 
 (defn poll-once! []
   (let [roles (load-roles)
-        socket (str/trim (slurp (str socket-file)))]
+        socket (when (fs/exists? socket-file) (str/trim (slurp (str socket-file))))]
     (doseq [[role role-info] roles
             path (or (outbox-files role-info) [])]
       (try

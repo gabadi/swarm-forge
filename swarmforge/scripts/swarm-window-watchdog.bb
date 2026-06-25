@@ -57,20 +57,41 @@
 (defn kill-session! [tmux-socket session]
   (process/sh {:continue true} "tmux" "-S" tmux-socket "kill-session" "-t" session))
 
+(defn herdr-pane-id [state-dir session]
+  (let [pane-file (fs/path state-dir "herdr-panes" session)]
+    (when (fs/exists? pane-file)
+      (first (str/split-lines (slurp (str pane-file)))))))
+
+(defn session-alive? [tmux-socket state-dir session]
+  (if-let [pane-id (herdr-pane-id state-dir session)]
+    (zero? (:exit (process/sh {:continue true} "herdr" "pane" "get" pane-id)))
+    (tmux-session? tmux-socket session)))
+
+(defn kill-session-herdr! [state-dir session]
+  (when-let [pane-id (herdr-pane-id state-dir session)]
+    (process/sh {:continue true} "herdr" "pane" "close" pane-id)))
+
+(defn kill-session-smart! [tmux-socket state-dir session]
+  (if (herdr-pane-id state-dir session)
+    (kill-session-herdr! state-dir session)
+    (kill-session! tmux-socket session)))
+
 (defn kill-all-sessions! [script-dir window-state-file working-dir tmux-socket backend]
-  (doseq [{:keys [session]} (rows window-state-file)]
-    (when-not (str/blank? session)
-      (kill-session! tmux-socket session)))
-  (doseq [{:keys [window-id]} (rows window-state-file)]
-    (when-not (str/blank? window-id)
-      (terminal-ok? script-dir working-dir tmux-socket backend "terminal_close_window" window-id))))
+  (let [state-dir (fs/path working-dir ".swarmforge")]
+    (doseq [{:keys [session]} (rows window-state-file)]
+      (when-not (str/blank? session)
+        (kill-session-smart! tmux-socket state-dir session)))
+    (doseq [{:keys [window-id]} (rows window-state-file)]
+      (when-not (str/blank? window-id)
+        (terminal-ok? script-dir working-dir tmux-socket backend "terminal_close_window" window-id)))))
 
 (defn -main [& args]
   (let [[window-state-file window-ids-file cleanup-owner-index tmux-socket working-dir backend] args
         window-state-file (fs/path window-state-file)
         window-ids-file (fs/path window-ids-file)
         backend (or backend "terminal-app")
-        script-dir (fs/parent *file*)]
+        script-dir (fs/parent *file*)
+        state-dir (fs/path working-dir ".swarmforge")]
     (when (= "--rewrite-window-id" (first args))
       (let [[_ state ids target replacement] args]
         (rewrite-window-id! (fs/path state) (fs/path ids) target replacement)
@@ -79,7 +100,7 @@
       (when (fs/exists? window-state-file)
         (let [current-rows (rows window-state-file)
               cleanup-row (some #(when (= cleanup-owner-index (:index %)) %) current-rows)]
-          (when (and cleanup-row (tmux-session? tmux-socket (:session cleanup-row)))
+          (when (and cleanup-row (session-alive? tmux-socket state-dir (:session cleanup-row)))
             (let [cleanup-window-id (:window-id cleanup-row)]
               (if (terminal-ok? script-dir working-dir tmux-socket backend "terminal_window_exists" cleanup-window-id)
                 (let [missing-counts (assoc missing-counts cleanup-owner-index 0)
@@ -87,7 +108,7 @@
                       (reduce
                        (fn [counts {:keys [index window-id session title]}]
                          (if (or (= index cleanup-owner-index)
-                                 (not (tmux-session? tmux-socket session)))
+                                 (not (session-alive? tmux-socket state-dir session)))
                            counts
                            (if (terminal-ok? script-dir working-dir tmux-socket backend "terminal_window_exists" window-id)
                              (assoc counts index 0)
