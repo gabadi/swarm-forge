@@ -36,15 +36,26 @@
 ;;; write-worktree-settings!
 
 (let [tmp (str (fs/create-temp-dir {:prefix "test-wt-"}))]
-  (write-worktree-settings! tmp)
+  (write-worktree-settings! "claude" tmp)
   (let [content (slurp (str (fs/path tmp ".claude" "settings.local.json")))]
-    (check "worktree-settings: autoCompactEnabled"          (str/includes? content "autoCompactEnabled"))
-    (check "worktree-settings: CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" (str/includes? content "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"))
-    (check "worktree-settings: CLAUDE_CODE_AUTO_COMPACT_WINDOW" (str/includes? content "CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
-    (check "worktree-settings: UserPromptSubmit hook"       (str/includes? content "UserPromptSubmit"))
-    (check "worktree-settings: Stop hook"                   (str/includes? content "Stop"))
-    (check "worktree-settings: gh pr merge allow rule"      (str/includes? content "gh pr merge"))
-    (check "worktree-settings: git reset allow rule"        (str/includes? content "git reset --hard origin/")))
+    (check "worktree-settings[claude]: autoCompactEnabled"          (str/includes? content "autoCompactEnabled"))
+    (check "worktree-settings[claude]: CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" (str/includes? content "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"))
+    (check "worktree-settings[claude]: CLAUDE_CODE_AUTO_COMPACT_WINDOW" (str/includes? content "CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
+    (check "worktree-settings[claude]: UserPromptSubmit hook"       (str/includes? content "UserPromptSubmit"))
+    (check "worktree-settings[claude]: Stop hook"                   (str/includes? content "Stop"))
+    (check "worktree-settings[claude]: gh pr merge allow rule"      (str/includes? content "gh pr merge"))
+    (check "worktree-settings[claude]: git reset allow rule"        (str/includes? content "git reset --hard origin/")))
+  (fs/delete-tree (fs/path tmp)))
+
+(let [tmp (str (fs/create-temp-dir {:prefix "test-wt-pi-"}))]
+  (write-worktree-settings! "pi" tmp)
+  (let [content (slurp (str (fs/path tmp ".pi" "settings.json")))]
+    (check "worktree-settings[pi]: .pi/settings.json created"       (fs/exists? (fs/path tmp ".pi" "settings.json")))
+    (check "worktree-settings[pi]: no .claude dir"                 (not (fs/exists? (fs/path tmp ".claude"))))
+    (check "worktree-settings[pi]: swarmforge.autoCompactPct"       (str/includes? content "autoCompactPct"))
+    (check "worktree-settings[pi]: swarmforge.autoCompactWindow"    (str/includes? content "autoCompactWindow"))
+    (check "worktree-settings[pi]: compaction.enabled true"         (str/includes? content "\"enabled\" : true"))
+    (check "worktree-settings[pi]: no advisor key"                  (not (str/includes? content "advisorModel"))))
   (fs/delete-tree (fs/path tmp)))
 
 ;;; write-persona-skill-file! (exercises resolve-prompt-bundle transitively)
@@ -59,24 +70,38 @@
   (let [ctx {:working-dir (fs/path root)
              :constitution-file (fs/path root "swarmforge" "constitution.prompt")
              :roles-dir (fs/path root "swarmforge" "roles")}
-        skill-file (str (fs/path wt ".claude" "skills" "swarm-persona" "SKILL.md"))]
+        skill-file (str (fs/path wt ".agents" "skills" "swarm-persona" "SKILL.md"))]
     (write-persona-skill-file! ctx "coder" wt)
     (let [content (slurp skill-file)]
-      (check "persona-skill: SKILL.md created"              (fs/exists? (fs/path skill-file)))
+      (check "persona-skill: SKILL.md created in .agents/skills" (fs/exists? (fs/path skill-file)))
+      (check "persona-skill: no .claude copy"                   (not (fs/exists? (fs/path wt ".claude" "skills" "swarm-persona" "SKILL.md"))))
       (check "persona-skill: name: swarm-persona"           (str/includes? content "name: swarm-persona"))
       (check "persona-skill: bundles role file"             (str/includes? content "swarmforge/roles/coder.prompt"))
-      (check "persona-skill: bundles constitution article"  (str/includes? content "swarmforge/constitution"))))
+      (check "persona-skill: bundles constitution article"  (str/includes? content "swarmforge/constitution"))
+      (check "persona-skill: no AGENTS.md in bundle (pi loads it natively)" (not (str/includes? content "<file path=\"AGENTS.md\">")))))
   (fs/delete-tree (fs/path root))
   (fs/delete-tree (fs/path wt)))
 
-;;; link-curator-skills!
+;;; link-skills! (formerly link-curator-skills!) — directory-level symlink
 
 (let [tmp (str (fs/create-temp-dir {:prefix "test-curator-"}))]
   (fs/create-dirs (fs/path tmp ".agents" "skills" "my-skill"))
   (spit (str (fs/path tmp ".agents" "skills" "my-skill" "SKILL.md")) "test\n")
+  (link-skills! tmp)
+  (check "link-skills: .claude/skills is a symlink"       (fs/sym-link? (fs/path tmp ".claude" "skills")))
+  (check "link-skills: symlink resolves to .agents/skills" (fs/exists? (fs/path tmp ".claude" "skills" "my-skill")))
+  ;; legacy real-dir is replaced by the symlink
+  (fs/create-dirs (fs/path tmp ".claude" "skills-legacy"))
+  (spit (str (fs/path tmp ".claude" "skills-legacy" "x")) "x\n")
+  (fs/delete (fs/path tmp ".claude" "skills"))
+  (fs/copy-tree (fs/path tmp ".claude" "skills-legacy") (fs/path tmp ".claude" "skills"))
+  (link-skills! tmp)
+  (check "link-skills: replaces existing real dir with symlink" (and (fs/sym-link? (fs/path tmp ".claude" "skills"))
+                                                                       (fs/exists? (fs/path tmp ".claude" "skills" "my-skill"))))
+  ;; backward-compat alias still works
+  (fs/delete (fs/path tmp ".claude" "skills"))
   (link-curator-skills! tmp)
-  (check "link-curator: symlink created in .claude/skills/"
-         (fs/exists? (fs/path tmp ".claude" "skills" "my-skill")))
+  (check "link-curator-skills! alias delegates to link-skills!" (fs/sym-link? (fs/path tmp ".claude" "skills")))
   (fs/delete-tree (fs/path tmp)))
 
 ;;; Report

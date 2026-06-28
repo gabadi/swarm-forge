@@ -1,6 +1,7 @@
 .DS_Store
 .env
-.claude/*
-!.claude/skills/
 .swarmforge/
 .worktrees/
+.agents/skills/swarm-persona/
+__pycache__/
+*.pyc
