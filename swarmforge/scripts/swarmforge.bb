@@ -180,7 +180,7 @@
                   (fail! (str red "Error:" reset " Duplicate worktree '" worktree "' in " (:config-file ctx))))
                 (when (or (str/includes? worktree "/") (#{"." ".."} worktree))
                   (fail! (str red "Error:" reset " Invalid worktree '" worktree "' for role '" role "'")))
-                (when-not (#{"claude" "codex" "copilot" "grok"} agent)
+                (when-not (#{"claude" "codex" "copilot" "grok" "pi"} agent)
                   (fail! (str red "Error:" reset " Unsupported agent '" agent "' for role '" role "'")))
                 (when-not (#{"task" "batch"} receive-mode)
                   (fail! (str red "Error:" reset " Invalid receive mode '" receive-mode "' for role '" role "' on line " line-no ": expected task or batch")))
@@ -364,14 +364,20 @@
                   " && cd " (sq (str role-worktree))
                   " && ")
         permission-mode (when-not (str/includes? (or (:extra-args row) "") "--permission-mode")
-                          " --permission-mode auto")]
+                          " --permission-mode auto")
+        pi-extension (str (fs/path role-script-dir "extensions" "swarmforge-pi.ts"))]
     (write-agent-instruction-file! role prompt-file)
     (cond-> (str base
                 (case agent
                   "claude" (str "claude --append-system-prompt-file " (sq (str prompt-file)) permission-mode " -n " (sq (str "SwarmForge " display)) " " (extra-args-prefix row))
                   "codex" (str "codex -C " (sq (str role-worktree)) " " (extra-args-prefix row) "\"$(cat " (sq (str prompt-file)) ")\"")
                   "copilot" (str "copilot -C " (sq (str role-worktree)) " --name " (sq (str "SwarmForge " display)) " " (extra-args-prefix row) "-i \"$(cat " (sq (str prompt-file)) ")\"")
-                  "grok" (str "grok --cwd " (sq (str role-worktree)) permission-mode " " (extra-args-prefix row) "--rules \"$(cat " (sq (str prompt-file)) ")\" --verbatim \"$(cat " (sq (str prompt-file)) ")\"")))
+                  "grok" (str "grok --cwd " (sq (str role-worktree)) permission-mode " " (extra-args-prefix row) "--rules \"$(cat " (sq (str prompt-file)) ")\" --verbatim \"$(cat " (sq (str prompt-file)) ")\"")
+                  "pi" (str "pi --append-system-prompt " (sq (str prompt-file))
+                             " --approve"
+                             " --extension " (sq pi-extension)
+                             " -n " (sq (str "SwarmForge " display))
+                             " " (extra-args-prefix row))))
       (= index 0)
       (str "; exit_code=$?; SWARMFORGE_TERMINAL_BACKEND=" (sq (:terminal-backend ctx))
            " nohup " (sq (str (fs/path (:script-dir ctx) "swarm-cleanup.sh")))
@@ -385,7 +391,7 @@
         display (:display-name row)
         command (launch-command ctx index row)]
     (write-persona-skill-file! ctx (:role row) (:worktree-path row))
-    (write-worktree-settings! (:worktree-path row) (or (:advisor row) ""))
+    (write-worktree-settings! (:agent row) (:worktree-path row) (or (:advisor row) ""))
     (if (herdr-backend? ctx)
       (let [pane-id (herdr-pane-id ctx session)]
         (Thread/sleep 300)
