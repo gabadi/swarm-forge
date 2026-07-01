@@ -7,30 +7,46 @@
 ;;; ADR 0020 + 0012: Worktree settings (auto-compaction + advisor model)
 
 (defn write-worktree-settings!
-  "Write .claude/settings.local.json with auto-compaction keys and optional advisor model."
-  ([worktree-path] (write-worktree-settings! worktree-path ""))
-  ([worktree-path advisor-model]
-   (let [settings-dir (fs/path worktree-path ".claude")
-         settings-file (fs/path settings-dir "settings.local.json")]
-     (fs/create-dirs settings-dir)
-     (let [cfg (try (json/parse-string (slurp (str settings-file)) true)
-                    (catch Exception _ {}))
-           cfg (-> cfg
-                   (assoc :autoCompactEnabled true)
-                   (assoc-in [:env :CLAUDE_AUTOCOMPACT_PCT_OVERRIDE] "88")
-                   (assoc-in [:env :CLAUDE_CODE_AUTO_COMPACT_WINDOW] "200000"))
-           marker-path (str worktree-path "/.swarmforge/agent-running")
-           cfg (-> cfg
-                   (assoc-in [:hooks :UserPromptSubmit] [{:hooks [{:type "command" :command (str "touch " marker-path)}]}])
-                   (assoc-in [:hooks :Stop] [{:hooks [{:type "command" :command (str "rm -f " marker-path)}]}]))
-           swarm-allow ["Bash(gh pr merge*)" "Bash(git reset --hard origin/*)"]
-           existing-allow (get-in cfg [:permissions :allow] [])
-           cfg (assoc-in cfg [:permissions :allow]
-                         (into existing-allow (remove (set existing-allow) swarm-allow)))
-           cfg (if (seq advisor-model)
-                 (assoc cfg :advisorModel advisor-model)
-                 cfg)]
-       (spit (str settings-file) (json/generate-string cfg {:pretty true}))))))
+  "Write backend-specific worktree settings.
+   For claude: .claude/settings.local.json with auto-compaction + advisor + hooks + permissions.
+   For pi: .pi/settings.json with swarmforge auto-compaction config (no advisor/hooks/permissions)."
+  ([agent worktree-path] (write-worktree-settings! agent worktree-path ""))
+  ([agent worktree-path advisor-model]
+   (cond
+     (= agent "pi")
+     (let [settings-dir (fs/path worktree-path ".pi")
+           settings-file (fs/path settings-dir "settings.json")]
+       (fs/create-dirs settings-dir)
+       (let [cfg (try (json/parse-string (slurp (str settings-file)) true)
+                      (catch Exception _ {}))
+             cfg (-> cfg
+                     (assoc-in [:swarmforge :autoCompactPct] 0.88)
+                     (assoc-in [:swarmforge :autoCompactWindow] 200000)
+                     (assoc-in [:compaction :enabled] true))]
+         (spit (str settings-file) (json/generate-string cfg {:pretty true}))))
+
+     :else
+     (let [settings-dir (fs/path worktree-path ".claude")
+           settings-file (fs/path settings-dir "settings.local.json")]
+       (fs/create-dirs settings-dir)
+       (let [cfg (try (json/parse-string (slurp (str settings-file)) true)
+                      (catch Exception _ {}))
+             cfg (-> cfg
+                     (assoc :autoCompactEnabled true)
+                     (assoc-in [:env :CLAUDE_AUTOCOMPACT_PCT_OVERRIDE] "88")
+                     (assoc-in [:env :CLAUDE_CODE_AUTO_COMPACT_WINDOW] "200000"))
+             marker-path (str worktree-path "/.swarmforge/agent-running")
+             cfg (-> cfg
+                     (assoc-in [:hooks :UserPromptSubmit] [{:hooks [{:type "command" :command (str "touch " marker-path)}]}])
+                     (assoc-in [:hooks :Stop] [{:hooks [{:type "command" :command (str "rm -f " marker-path)}]}]))
+             swarm-allow ["Bash(gh pr merge*)" "Bash(git reset --hard origin/*)"]
+             existing-allow (get-in cfg [:permissions :allow] [])
+             cfg (assoc-in cfg [:permissions :allow]
+                           (into existing-allow (remove (set existing-allow) swarm-allow)))
+             cfg (if (seq advisor-model)
+                   (assoc cfg :advisorModel advisor-model)
+                   cfg)]
+         (spit (str settings-file) (json/generate-string cfg {:pretty true})))))))
 
 ;;; ADR 0017: Inlined prompt bundle + swarm-persona skill
 
@@ -62,13 +78,15 @@
         bundle))))
 
 (defn write-persona-skill-file!
-  "Create .claude/skills/swarm-persona/SKILL.md with bundled role+constitution."
+  "Create .agents/skills/swarm-persona/SKILL.md with bundled role+constitution.
+  .agents/skills/ is the single real skill dir; claude sees it via the directory
+  symlink created by link-skills!, pi auto-discovers it."
   [ctx role worktree-path]
   (let [working-dir (:working-dir ctx)
-        skill-dir (fs/path worktree-path ".claude" "skills" "swarm-persona")
+        skill-dir (fs/path worktree-path ".agents" "skills" "swarm-persona")
         skill-file (fs/path skill-dir "SKILL.md")
         bundle-files (resolve-prompt-bundle working-dir (:constitution-file ctx) (:roles-dir ctx) role)
-        knowledge-files ["AGENTS.md" (str ".agents/roles/" role ".md")]]
+        knowledge-files [(str ".agents/roles/" role ".md")]]
     (fs/create-dirs skill-dir)
     (spit (str skill-file)
           (str "---\n"
@@ -79,7 +97,7 @@
                "<instructions>\n"
                "This prompt bundle is pre-resolved. Do not open or re-read any swarmforge/*.prompt files"
                " — all relevant instructions are already included below. Project knowledge files"
-               " (AGENTS.md and your role file under .agents/roles/) are included below when present.\n"
+               " (your role file under .agents/roles/) are included below when present.\n"
                "</instructions>\n"
                (apply str
                       (for [rel bundle-files
@@ -129,7 +147,8 @@
              [(str/trim (subs line 0 sep)) (str/trim (subs line (inc sep)))])))
 
 (defn install-skills!
-  "Install local skills and pinned entire and mattpocock skills into .claude/skills/."
+  "Install local skills and pinned entire and mattpocock skills into .agents/skills/.
+  .agents/skills/ is the single real skill dir for both claude (symlinked) and pi (auto-discovered)."
   [ctx]
   (let [pins-file (fs/path (:script-dir ctx) "install-pins.conf")]
     (when (fs/exists? pins-file)
@@ -139,7 +158,7 @@
             mattpocock-include (when-let [inc (get pins "MATTPOCOCK_SKILLS_INCLUDE")]
                                  (set (map str/trim (str/split inc #","))))
             skills-src (fs/path (:script-dir ctx) ".." "skills")
-            skills-dst (fs/path (:working-dir ctx) ".claude" "skills")]
+            skills-dst (fs/path (:working-dir ctx) ".agents" "skills")]
         (println (str cyan "Installing skills..." reset))
         (fs/create-dirs (:state-dir ctx))
         (fs/create-dirs skills-dst)
@@ -212,17 +231,24 @@
 
 ;;; ADR 0021: Curator skill links
 
-(defn link-curator-skills!
-  "Symlink .agents/skills/* into .claude/skills/."
+(defn link-skills!
+  "Symlink the whole .agents/skills directory into .claude/skills so the claude
+  backend sees the single real skill dir. pi auto-discovers .agents/skills/ and
+  ignores .claude/, so this symlink is harmless for pi and lets one code path
+  serve both backends. If .claude/skills already exists as a real directory
+  (legacy layout), remove it first so the symlink can be created."
   [target-path]
   (let [agents-skills-dir (fs/path target-path ".agents" "skills")
         claude-skills-dir (fs/path target-path ".claude" "skills")]
     (when (fs/exists? agents-skills-dir)
-      (fs/create-dirs claude-skills-dir)
-      (doseq [skill-dir (->> (fs/list-dir agents-skills-dir) (filter fs/directory?))]
-        (let [skill-name (str (fs/file-name skill-dir))
-              link (fs/path claude-skills-dir skill-name)]
-          (when-not (fs/exists? link)
-            (process/sh {:continue true} "ln" "-sfn"
-                        (str "../../.agents/skills/" skill-name)
-                        (str link))))))))
+      (fs/create-dirs (fs/parent claude-skills-dir))
+      (when (fs/exists? claude-skills-dir)
+        (process/sh {:continue true} "rm" "-rf" (str claude-skills-dir)))
+      (process/sh {:continue true} "ln" "-sfn"
+                  (str "../.agents/skills")
+                  (str claude-skills-dir)))))
+
+(defn link-curator-skills!
+  "Deprecated alias kept for any external callers; delegates to link-skills!."
+  [target-path]
+  (link-skills! target-path))

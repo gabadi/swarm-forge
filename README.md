@@ -59,7 +59,7 @@ SwarmForge runs locally. Before starting a runnable branch, make sure the target
 - `git`
 - `tmux`
 - Babashka (`bb`)
-- At least one configured agent backend, such as `codex`, `claude`, `copilot`, or `grok`
+- At least one configured agent backend, such as `codex`, `claude`, `copilot`, `grok`, or `pi`
 
 ## Getting Started
 
@@ -109,7 +109,7 @@ SwarmForge is a lightweight, tmux-based orchestration layer that:
 - Launches a **config-driven swarm** from a project-local `swarmforge/swarmforge.conf`
 - Creates one tmux session per configured role and opens a terminal surface for each role when the selected backend supports it
 - Reads behavior from project-local `swarmforge/roles/<role>.prompt` files plus a layered `swarmforge/constitution.prompt`
-- Supports per-role backends such as `claude`, `codex`, `copilot`, or `grok`
+- Supports per-role backends such as `claude`, `codex`, `copilot`, `grok`, or `pi`
 - Puts the shared `swarmforge/scripts/` directory on each agent's `PATH`, including handoff helpers for active swarm communication
 - Creates git worktrees under `.worktrees/` for roles assigned to dedicated worktree names
 - Initializes a git repository in a new working directory when needed
@@ -120,7 +120,7 @@ SwarmForge is a lightweight, tmux-based orchestration layer that:
 - **Config-Driven Topology** — The swarm shape comes from `swarmforge/swarmforge.conf`, not hardcoded shell variables.
 - **Project-Local Roles** — Each role is defined by `swarmforge/roles/<role>.prompt` in the working tree being orchestrated.
 - **Layered Constitution** — `swarmforge/constitution.prompt` directs agents to read article files under `swarmforge/constitution/articles/`.
-- **Backend Selection Per Role** — A role can launch `claude`, `codex`, `copilot`, or `grok`.
+- **Backend Selection Per Role** — A role can launch `claude`, `codex`, `copilot`, `grok`, or `pi`.
 - **Observable Swarm** — Open one Terminal window per role and watch the sessions in real time.
 - **Self-Hosted & Lightweight** — Runs locally in tmux and Terminal with minimal machinery.
 
@@ -243,6 +243,8 @@ One special token is intercepted before passthrough:
 | Token | Applies to | Effect |
 |-------|-----------|--------|
 | `advisor=<model>` | claude only | writes `advisorModel` into the worktree's `.claude/settings.local.json` instead of being passed as a CLI flag |
+
+The `advisor=` token is accepted as a **no-op** for `pi` (no pi equivalent; the Claude in-editor advisor feature has no counterpart). It is discarded so configs stay portable across backends. See ADR 0023 for the full pi backend adaptation, including the bundled `swarmforge-pi` extension (agent-running marker + percentage auto-compaction) that `./swarm` loads via `pi --extension`.
 
 You can define as many windows as your project needs. Each `role` maps to a corresponding prompt file at `swarmforge/roles/<role>.prompt`, so a config containing `architect`, `coder`, `reviewer`, `research`, and `release` windows would expect:
 
