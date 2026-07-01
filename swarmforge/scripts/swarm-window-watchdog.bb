@@ -76,7 +76,13 @@
     (kill-session-herdr! state-dir session)
     (kill-session! tmux-socket session)))
 
+(defn stop-handoff-daemon! [script-dir working-dir]
+  (process/sh {:continue true}
+              "bb" (str (fs/path script-dir "stop_handoff_daemon.bb"))
+              (str working-dir)))
+
 (defn kill-all-sessions! [script-dir window-state-file working-dir tmux-socket backend]
+  (stop-handoff-daemon! script-dir working-dir)
   (let [state-dir (fs/path working-dir ".swarmforge")]
     (doseq [{:keys [session]} (rows window-state-file)]
       (when-not (str/blank? session)

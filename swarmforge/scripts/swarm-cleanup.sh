@@ -21,11 +21,16 @@ has_command() {
 source "$SCRIPT_DIR/swarm-terminal-adapter.sh"
 load_terminal_backend "$TERMINAL_BACKEND"
 
-DAEMON_PID_FILE="$WORKING_DIR/.swarmforge/daemon/handoffd.pid"
-if [[ -f "$DAEMON_PID_FILE" ]]; then
-  daemon_pid="$(< "$DAEMON_PID_FILE")"
-  if [[ "$daemon_pid" == <-> ]]; then
-    kill -TERM "$daemon_pid" 2>/dev/null || true
+if has_command bb; then
+  bb "$SCRIPT_DIR/stop_handoff_daemon.bb" "$WORKING_DIR" 2>/dev/null || true
+else
+  DAEMON_PID_FILE="$WORKING_DIR/.swarmforge/daemon/handoffd.pid"
+  if [[ -f "$DAEMON_PID_FILE" ]]; then
+    daemon_pid="$(< "$DAEMON_PID_FILE")"
+    if [[ "$daemon_pid" == <-> ]]; then
+      kill -TERM "$daemon_pid" 2>/dev/null || true
+    fi
+    rm -f "$DAEMON_PID_FILE"
   fi
 fi
 
