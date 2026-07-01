@@ -237,7 +237,8 @@
    "done_with_current_task.sh" "done_with_current_task.bb"
    "ready_for_next_batch.sh" "ready_for_next_batch.bb"
    "done_with_current_batch.sh" "done_with_current_batch.bb"
-   "handoffd.bb" "swarm-cleanup.sh" "swarm-window-watchdog.sh" "swarm-window-watchdog.bb"
+   "handoffd.bb" "stop_handoff_daemon.bb" "stop_handoff_daemon.sh"
+   "swarm-cleanup.sh" "swarm-window-watchdog.sh" "swarm-window-watchdog.bb"
    "swarm-terminal-adapter.sh" "swarmforge.sh" "swarmforge.bb"])
 
 (def terminal-helpers
@@ -350,6 +351,19 @@
   (let [args (:extra-args row)]
     (if (str/blank? args) "" (str args " "))))
 
+(defn grok-wants-auto-approve? [row]
+  (when-let [args (:extra-args row)]
+    (or (str/includes? args "--always-approve")
+        (str/includes? args "--yolo")
+        (re-find #"--permission-mode\s+bypassPermissions" args))))
+
+(defn grok-permission-prefix [row]
+  ;; acceptEdits only auto-approves file edits; bypassPermissions is the
+  ;; CLI-enforced mode that matches --always-approve / --yolo.
+  (if (grok-wants-auto-approve? row)
+    "--permission-mode bypassPermissions "
+    "--permission-mode acceptEdits "))
+
 (defn launch-command [ctx index row]
   (let [role (:role row)
         agent (:agent row)
@@ -372,7 +386,7 @@
                   "claude" (str "claude --append-system-prompt-file " (sq (str prompt-file)) permission-mode " -n " (sq (str "SwarmForge " display)) " " (extra-args-prefix row))
                   "codex" (str "codex -C " (sq (str role-worktree)) " " (extra-args-prefix row) "\"$(cat " (sq (str prompt-file)) ")\"")
                   "copilot" (str "copilot -C " (sq (str role-worktree)) " --name " (sq (str "SwarmForge " display)) " " (extra-args-prefix row) "-i \"$(cat " (sq (str prompt-file)) ")\"")
-                  "grok" (str "grok --cwd " (sq (str role-worktree)) permission-mode " " (extra-args-prefix row) "--rules \"$(cat " (sq (str prompt-file)) ")\" --verbatim \"$(cat " (sq (str prompt-file)) ")\"")
+                  "grok" (str "grok --cwd " (sq (str role-worktree)) " " (grok-permission-prefix row) (extra-args-prefix row) "--rules \"$(cat " (sq (str prompt-file)) ")\" --verbatim \"$(cat " (sq (str prompt-file)) ")\"")
                   "pi" (str "pi --append-system-prompt " (sq (str prompt-file))
                              " --approve"
                              " --extension " (sq pi-extension)
@@ -403,18 +417,44 @@
     (println (str "  " cyan "[" display "]" reset " started in session " session))))
 
 (defn stop-handoff-daemon! [ctx]
-  (let [pid-file (fs/path (:daemon-dir ctx) "handoffd.pid")]
-    (when (fs/exists? pid-file)
-      (let [pid (str/trim (slurp (str pid-file)))]
-        (when (re-matches #"[0-9]+" pid)
-          (process/sh {:continue true} "kill" "-TERM" pid))))))
+  (process/sh {:continue true}
+              "bb" (str (fs/path (:script-dir ctx) "stop_handoff_daemon.bb"))
+              (str (:working-dir ctx))))
+
+(defn uname []
+  (str/trim (:out (process/sh {:continue true} "uname" "-s"))))
+
+(defn linux-systemd-running? []
+  (let [result (process/sh {:continue true} "systemctl" "is-system-running")
+        state (str/trim (:out result))]
+    (#{"running" "degraded"} state)))
+
+(defn sleep-inhibitor-prefix []
+  (when-not (= "0" (System/getenv "SWARMFORGE_PREVENT_SLEEP"))
+    (case (uname)
+      "Darwin" (when (command-exists? "caffeinate")
+                 ["caffeinate" "-dims"])
+      "Linux" (when (and (command-exists? "systemd-inhibit")
+                         (command-exists? "systemctl")
+                         (linux-systemd-running?))
+                ["systemd-inhibit"
+                 "--what=sleep:idle"
+                 "--who=SwarmForge"
+                 "--why=SwarmForge swarm is active"])
+      nil)))
 
 (defn start-handoff-daemon! [ctx]
   (fs/delete-if-exists (fs/path (:daemon-dir ctx) "stop"))
-  (process/process [(str (fs/path (:script-dir ctx) "handoffd.bb")) (str (:working-dir ctx))]
-                   {:out (str (:handoff-daemon-log ctx))
-                    :err :out})
-  (println (str green "Started handoff daemon." reset)))
+  (let [command (into (vec (sleep-inhibitor-prefix))
+                      [(str (fs/path (:script-dir ctx) "handoffd.bb"))
+                       (str (:working-dir ctx))])]
+    (process/process command
+                     {:out (str (:handoff-daemon-log ctx))
+                      :err :out})
+    (println (str green "Started handoff daemon"
+                  (when (> (count command) 2) " with OS sleep prevention")
+                  "."
+                  reset))))
 
 (defn adapter-script [ctx command & args]
   (let [script (str "SCRIPT_DIR=" (sq (str (:script-dir ctx))) "\n"
@@ -604,6 +644,9 @@
     (fs/create-dirs (:prompts-dir ctx))
     (println (launch-command ctx 1 row))))
 
+(defn test-sleep-inhibitor-prefix! []
+  (println (str/join " " (or (sleep-inhibitor-prefix) []))))
+
 (defn -main [& args]
   (case (first args)
     "--test-parse" (test-parse! (or (second args) (System/getProperty "user.dir")))
@@ -612,6 +655,7 @@
                                      (or (second args) (System/getProperty "user.dir"))
                                      (drop 2 args))
     "--test-agent-start-delay" (println (env-long "SWARMFORGE_AGENT_START_DELAY_MS" 1500))
+    "--test-sleep-inhibitor-prefix" (test-sleep-inhibitor-prefix!)
     "--test-tmux-base-indexes" (test-tmux-base-indexes! (second args))
     "start" (run-main! (System/getProperty "user.dir"))
     (run-main! (or (first args) (System/getProperty "user.dir")))))
