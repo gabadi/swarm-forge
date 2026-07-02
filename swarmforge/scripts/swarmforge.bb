@@ -317,8 +317,31 @@
   (doseq [agent (map :agent (:roles ctx))]
     (check-dependency! agent)))
 
+(defn herdr-project-label [ctx]
+  (str (fs/file-name (:working-dir ctx))))
+
+(defn find-herdr-workspace-id [label]
+  (let [output (sh-out "herdr" "workspace" "list")
+        id (sh-out "sh" "-c"
+                   (str "printf '%s' " (sq output)
+                        " | jq -r --arg label " (sq label)
+                        " '.result.workspaces[] | select(.label == $label) | .workspace_id' | head -1"))]
+    (when-not (str/blank? id) id)))
+
+(defn create-herdr-workspace! [ctx label]
+  (let [output (sh-out "herdr" "workspace" "create" "--label" label "--cwd" (str (:working-dir ctx)) "--no-focus")
+        id (sh-out "sh" "-c" (str "printf '%s' " (sq output) " | jq -r '.result.workspace.workspace_id'"))]
+    (when (or (str/blank? id) (= id "null"))
+      (fail! (str "Failed to create herdr workspace '" label "'")))
+    id))
+
+(defn resolve-herdr-workspace! [ctx]
+  (let [label (herdr-project-label ctx)]
+    (or (find-herdr-workspace-id label)
+        (create-herdr-workspace! ctx label))))
+
 (defn create-herdr-tab! [ctx session title worktree-path]
-  (let [output (sh-out "herdr" "tab" "create" "--label" (str "SF - " title) "--cwd" (str worktree-path))
+  (let [output (sh-out "herdr" "tab" "create" "--workspace" (:herdr-workspace-id ctx) "--label" (str "SF - " title) "--cwd" (str worktree-path))
         tab-id (sh-out "sh" "-c" (str "printf '%s' " (sq output) " | jq -r '.result.tab.tab_id'"))
         pane-id (sh-out "sh" "-c" (str "printf '%s' " (sq output) " | jq -r '.result.root_pane.pane_id'"))]
     (when (or (str/blank? pane-id) (= pane-id "null"))
@@ -572,7 +595,10 @@
       (check-dependency! "tmux"))
     (initialize-git-repo! ctx)
     (ensure-runtime-git-excludes! ctx)
-    (let [ctx (assoc (prepare-ctx ctx) :terminal-backend backend)]
+    (let [ctx (assoc (prepare-ctx ctx) :terminal-backend backend)
+          ctx (if (herdr-backend? ctx)
+                (assoc ctx :herdr-workspace-id (resolve-herdr-workspace! ctx))
+                ctx)]
       (check-backend-dependencies! ctx)
       (prepare-workspace! ctx)
       (ensure-skills-installed! ctx)
