@@ -1,14 +1,13 @@
 # Fork Language Rules
 
-These rows extend the Language tool table in `engineering.prompt`. All Startup Tools rules apply to them, with one exception: procure these tools from the package registry or GitHub release listed per row, not from `github.com/unclebob/...` repositories.
-
 ## Language Tool Table (Fork Rows)
-- JavaScript/TypeScript: install with npm (`npm install --save-dev`) or Bun (`bun add -d`); mutation `mutate4js` (npm registry), CRAP `@gabadi/crap4js` (npm registry only — the source repository `github.com/gabadi/crap4js` is private, do not install from GitHub), DRY `drywall` (see below).
-- Python: install with uv (`uv tool install` or `uvx`) or pip; mutation `mutate4py` (PyPI), CRAP `crap4py` (PyPI), DRY `drywall` (see below).
-- `drywall` is a single binary covering DRY analysis for both rows. Download the platform asset from the latest release at `github.com/gabadi/drywall` (`drywall-linux-x86_64`, `drywall-macos-aarch64`, or `drywall-macos-x86_64`), `chmod +x` it, and place it on PATH. If no prebuilt asset fits the environment, build with `cargo install --git https://github.com/gabadi/drywall`.
+- These rows extend the Language tool table in `engineering.prompt`. Procure these tools from the registry or release listed per row, not from `github.com/unclebob/...` repositories.
+- JavaScript/TypeScript: install with npm or Bun; mutation `mutate4js` (npm), CRAP `@gabadi/crap4js` (npm only, never from GitHub), DRY `drywall`.
+- Python: install with uv or pip; mutation `mutate4py` (PyPI), CRAP `crap4py` (PyPI), DRY `drywall`.
+- drywall: download the platform binary from the latest `github.com/gabadi/drywall` release (`drywall-linux-x86_64`, `drywall-macos-aarch64`, or `drywall-macos-x86_64`), `chmod +x`, place on PATH. Fallback: `cargo install --git https://github.com/gabadi/drywall`.
 
 ## Branch Coverage
-- The CRAP and mutation tools in these rows score from LCOV branch records (BRDA). Coverage produced without branch tracking mis-scores silently instead of failing; always enable branch coverage.
-- Python: `pytest --cov --cov-branch --cov-report=lcov:lcov.info` (or set `branch = True` in the coverage configuration).
-- JavaScript/TypeScript: enable the test runner's `lcov` coverage reporter (Vitest, Jest, and Bun write `coverage/lcov.info`).
-- Pass the LCOV file explicitly where a tool accepts it: `crap4py src/ --lcov lcov.info`; `mutate4py path/to/file.py --lcov lcov.info` (or `--cov-cmd`); `mutate4js path/to/file.ts --test-command "<cmd>" --cov-cmd "<coverage cmd>"`. `crap4js` reads `coverage/lcov.info` by default and accepts `--cov-cmd`.
+- Always enable branch coverage for these rows; the CRAP and mutation tools require LCOV BRDA records.
+- Python: `pytest --cov --cov-branch --cov-report=lcov:lcov.info` (or `branch = True` in the coverage config).
+- JavaScript/TypeScript: enable the test runner's `lcov` coverage reporter (writes `coverage/lcov.info`).
+- Pass the LCOV file explicitly: `crap4py src/ --lcov lcov.info`; `mutate4py path/to/file.py --lcov lcov.info` or `--cov-cmd`; `mutate4js path/to/file.ts --test-command "<cmd>" --cov-cmd "<coverage cmd>"`. `crap4js` reads `coverage/lcov.info` by default.
