@@ -1,9 +1,9 @@
 # Fork Language Rules
 
 ## Language Tool Table (Fork Rows)
-- These rows extend the Language tool table in `engineering.prompt`. Procure these tools from the registry or release listed per row, not from `github.com/unclebob/...` repositories.
-- JavaScript/TypeScript: install with npm or Bun; mutation `mutate4js` (npm), CRAP `@gabadi/crap4js` (npm only, never from GitHub), DRY `drywall`.
-- Python: install with uv or pip; mutation `mutate4py` (PyPI), CRAP `crap4py` (PyPI), DRY `drywall`.
+- These rows extend the Language tool table in `engineering.prompt`.
+- JavaScript/TypeScript: install with npm or Bun; mutation `mutate4js`, CRAP `@gabadi/crap4js`, DRY `drywall`.
+- Python: install with uv; mutation `mutate4py`, CRAP `crap4py`, DRY `drywall`.
 - drywall: download the platform binary from the latest `github.com/gabadi/drywall` release (`drywall-linux-x86_64`, `drywall-macos-aarch64`, or `drywall-macos-x86_64`), `chmod +x`, place on PATH. Fallback: `cargo install --git https://github.com/gabadi/drywall`.
 
 ## Branch Coverage
