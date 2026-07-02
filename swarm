@@ -19,15 +19,16 @@ trap cleanup EXIT
 if [[ "${1:-}" == "stop" ]]; then
   STATE_DIR="$SCRIPT_DIR/.swarmforge"
   CLEANUP_SCRIPT="$SCRIPT_DIR/swarmforge/scripts/swarm-cleanup.sh"
-  if [[ ! -f "$STATE_DIR/tmux-socket" ]]; then
-    echo "No running swarm found (.swarmforge/tmux-socket missing)." >&2
+  if [[ ! -f "$STATE_DIR/tmux-socket" && ! -d "$STATE_DIR/herdr-panes" ]]; then
+    echo "No running swarm found (.swarmforge/tmux-socket and .swarmforge/herdr-panes missing)." >&2
     exit 1
   fi
   if [[ ! -f "$CLEANUP_SCRIPT" ]]; then
     echo "swarm-cleanup.sh not found — run ./swarm once to bootstrap scripts." >&2
     exit 1
   fi
-  _tmux_socket="$(< "$STATE_DIR/tmux-socket")"
+  _tmux_socket=""
+  [[ -f "$STATE_DIR/tmux-socket" ]] && _tmux_socket="$(< "$STATE_DIR/tmux-socket")"
   _sessions=()
   if [[ -f "$STATE_DIR/sessions.tsv" ]]; then
     while IFS=$'\t' read -r _ _ _session _; do
