@@ -15,7 +15,7 @@ Run this skill **once** before invoking `./swarm`. It prepares the project so th
 
 ## Step 1 — Ask the operator for the project stack
 
-Read `swarmforge/constitution/articles/engineering.prompt` and extract the stacks listed under "Language tool table". Present only those stacks as numbered options — do not offer stacks that are not in that table.
+Read `swarmforge/constitution/articles/engineering.prompt` and extract the stacks listed under "Language tool table". Also read `swarmforge/constitution/articles/fork-languages.prompt` and include its fork-added rows. Present only those stacks as numbered options — do not offer stacks that are not in either table.
 
 Ask the operator:
 
@@ -28,13 +28,13 @@ Once the operator answers, stamp the chosen language into the local engineering 
 ```bash
 printf '\n## Project Language\n- Project language: <chosen-language>.\n' >> swarmforge/constitution/articles/local-engineering.prompt
 ```
-Where `<chosen-language>` is the language name exactly as it appears in the engineering.prompt tool table entry.
+Where `<chosen-language>` is the language name exactly as it appears in the matching tool table entry.
 
 ---
 
 ## Step 2 — Install quality tools
 
-Read the "Language tool table" section of `swarmforge/constitution/articles/engineering.prompt`. For the chosen stack, install the mutation, CRAP, and DRY tools listed there — use the exact repositories and install method specified in that table.
+Read the "Language tool table" section of `swarmforge/constitution/articles/engineering.prompt` and the fork rows in `swarmforge/constitution/articles/fork-languages.prompt`. For the chosen stack, install the mutation, CRAP, and DRY tools listed there — use the exact repositories/registries and install method specified in the matching table.
 
 Also install the Acceptance Pipeline Specification (APS) tools:
 ```
