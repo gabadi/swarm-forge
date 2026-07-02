@@ -9,8 +9,8 @@
 
 | Stack | CRAP | DRY | Mutation |
 |-------|------|-----|----------|
-| **JS/TS** | `crap4js` v0.1.0 — **done** | `drywall` — **done** | `mutate4js` npm — **scaffold** (`gabadi/mutate4js`) |
-| **Python** | `crap4py` v0.1.1 — **done** | `drywall` — **done** | `mutate4py` PyPI — **scaffold** (`gabadi/mutate4py`) |
+| **JS/TS** | `crap4js` v0.1.0 — **done** | `drywall` — **done** | `mutate4js` npm v0.1.0 — **done** (`gabadi/mutate4js`) |
+| **Python** | `crap4py` v0.1.1 — **done** | `drywall` — **done** | `mutate4py` PyPI — **done** (`gabadi/mutate4py`) |
 | **Rust** | `cargo-crap` — **reuse** | `drywall` — **done** | `mutate4rs` crate — **todo** |
 
 ---
@@ -18,10 +18,9 @@
 ## 1. What Exists Today
 
 ### crap4js v0.1.0
-- **Install:** `npm install --save-dev github:gabadi/crap4js#v0.1.0`
-- **Source:** `github.com/gabadi/crap4js`
+- **Install:** `npm install --save-dev @gabadi/crap4js`
+- **Source:** `github.com/gabadi/crap4js` (private — install from the npm registry only)
 - Branch coverage (BRDA) and `?.` CC exclusion are both implemented
-- Distributed via GitHub releases — no npm registry
 
 ### drywall v0.1.0
 - **Install:** `cargo install --git https://github.com/gabadi/drywall --tag v0.1.0`
@@ -52,10 +51,10 @@
 - Branch coverage via LCOV (pytest-cov / coverage.py with `branch = True`)
 - Output matches crap4go column format — Function, Module, CC, Cov%, CRAP — sorted worst first
 
-### 2.2 mutate4js — JS/TS mutation (npm)
+### 2.2 mutate4js — **done** (npm v0.1.0)
 
 - **Distribution:** npm package (`npm install --save-dev mutate4js`)
-- **Parser:** OXC (already used in drywall — same investment)
+- **Parser:** `@typescript-eslint/typescript-estree` (not OXC as originally planned)
 - **Manifest comment style:** `// mutate4js-manifest: version=1`
 
 ```
@@ -85,9 +84,9 @@ mutate4rs [flags] path/to/file.rs
 | `--scan` | false | Count mutation sites only, no tests |
 | `--verbose` | false | Log actions to stderr |
 
-### 2.4 mutate4py — Python mutation tool — **scaffold** (`gabadi/mutate4py`)
+### 2.4 mutate4py — **done** (PyPI, `gabadi/mutate4py`)
 
-Repo scaffolded with the swarm six-pack + `entire` (checkpoints →
+Built with the swarm six-pack + `entire` (checkpoints →
 `gabadi/mutate4py-entire`). The authoritative design lives in that repo's
 `docs/spec.md` — a faithful `mutate4go` port with the user-facing contract
 cross-checked against `unclebob/clj-mutate`. §3–§5 below are **superseded** by it.
@@ -98,8 +97,8 @@ mutate4py [flags] path/to/file.py
 
 Locked `[PY]` divergences (see repo spec for full rationale):
 
-- **Serial only — `--max-workers` removed.** The copy-isolated-worker model is
-  unsound under Python editable installs (`pip install -e .`); mutation is in-place.
+- **Serial only — `--max-workers` removed.** *(Superseded in implementation:
+  `--max-workers` and a worker pool shipped; see the repo spec.)*
 - **Coverage acquired explicitly** via `--lcov` / `--cov-cmd` / `--reuse-coverage`
   (no universal Go `-coverprofile` equivalent); reads LCOV from coverage.py.
 - **Manifest hash = `ast.dump()`** (structural), not whitespace-collapse —
