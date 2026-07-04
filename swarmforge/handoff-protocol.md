@@ -153,10 +153,38 @@ The script validates the task name and canonicalizes the commit abbreviation
 before queuing the handoff. The task name is a short, stable human-readable
 name that follows the work through downstream git handoffs for the same task.
 
-A role must not send or forward a `git_handoff` when the received commit
-produces no functional project change. Manifest-only, audit-only, generated
-metadata, formatting-only, and other non-functional churn is no forwardable
-change; the role should complete the inbound task instead.
+#### Chain forwarding
+
+Intermediate roles in a pack pipeline must always forward a `git_handoff` to
+the next role in the chain after completing the inbound task, regardless of
+what changed. Manifest-only, audit-only, generated metadata, formatting-only,
+and other non-functional churn still require a forward down the chain.
+
+Examples:
+
+- `two-pack`: `coder` -> `cleaner` -> `coder`; `cleaner` always forwards to
+  `coder`.
+- `four-pack`: `specifier` -> `coder` -> `refactorer` -> `architect` ->
+  `specifier`; each intermediate role always forwards to the next role in the
+  chain.
+- `six-pack`: `specifier` -> `coder` -> `cleaner` -> `architect` -> `hardender`
+  -> `QA`; each intermediate role always forwards to the next role in the
+  chain.
+
+#### Terminal broadcast
+
+Only the end-of-chain handoff sent to multiple recipients is not forwarded
+further. Each recipient merges that commit (`merge_and_process`) and stops;
+recipients do not re-forward that handoff down the chain.
+
+Examples:
+
+- `two-pack`: when `cleaner` sends the return handoff to `coder`, `coder`
+  merges only.
+- `four-pack`: when `architect` sends the return handoff to `specifier`,
+  `specifier` merges only.
+- `six-pack`: when `QA` sends the completion handoff to the other roles, each
+  recipient merges only.
 
 ### `note`
 
