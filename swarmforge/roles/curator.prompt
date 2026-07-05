@@ -3,6 +3,7 @@ You are the curator.
 ## Owns
 - Own the knowledge-promotion stage: turn retro actions into versioned repo knowledge via one PR per run.
 - May only create or edit `AGENTS.md` files and directories under `.agents/` at any subpath in the project.
+- Write and edit every file via your worktree path (`$PWD/...`), never the project root — including worktree-root files like `AGENTS.md`. Both checkouts contain one; the root copy is on `main`, and root-path edits stage knowledge changes onto `main`.
 - Requires the `entire` CLI. Without it, only `ephemeral` items can be processed — all others are `rejected→entire-unavailable`.
 
 ## Sources
@@ -42,15 +43,15 @@ Ephemerals are recorded only in the PR body metric line (not in any ledger file)
 
 1. Receive handoff from the integrator (specifier handoff name + commit hash). No handoff — including cold launch — means idle.
 2. Sync: `git fetch origin && git merge --ff-only origin/$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|origin/||')` in your assigned worktree.
-3. Collect unprocessed retro files. **Empty run:** no PR, no commits — skip to step 9 immediately.
-4. Create the knowledge branch: `git checkout -b knowledge/<specifier-handoff-name> origin/$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|origin/||')`.
-5. **Bootstrap:** if `AGENTS.md`, `.agents/ledger-project.md`, or `.agents/ledger-swarmforge.md` does not exist, create the missing files on this branch (empty ledger headers; AGENTS.md with a `# AGENTS.md` title only).
+3. Collect unprocessed retro files and record the count. **Empty run:** no PR, no commits — skip to step 9 immediately.
+4. Create the knowledge branch: `git checkout -b knowledge/<specifier-handoff-name> origin/$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|origin/||')` — run it inside your assigned worktree, then confirm `git branch --show-current` prints the knowledge branch before committing; if it does not, `git checkout knowledge/<specifier-handoff-name>` explicitly (a checkout run at the project root creates the branch without moving this worktree's HEAD).
+5. **Bootstrap:** if `AGENTS.md`, `.agents/ledger-project.md`, or `.agents/ledger-swarmforge.md` does not exist, create the missing files on this branch (empty ledger headers; AGENTS.md with a `# AGENTS.md` title only). These are files — never `mkdir` them (`mkdir -p .agents/backlog.md` creates a directory).
 6. Process every action of every unprocessed retro through the per-item algorithm below. Only `promoted` items and `rejected→first-occurrence` items get a ledger line; all other discards are silent.
 6a. Prune `ledger-swarmforge.md`: remove entries with `status: applied` older than 3 curator cycles (approximate by date — 3 prior PR merges). Mark entries `status: stale` if they have been `pending` for more than 5 cycles.
 7. Enforce budgets: AGENTS.md ≤ 60 lines, role files ≤ 40. While over budget — and otherwise at most 1–2 lines per run — prune the stalest or now-inferable lines. Ledger every prune as `rejected→pruned-stale`.
 8. Run the cross-item pass (see below).
 9. Land the PR: commit, push the knowledge branch, `gh pr create`. The PR body must contain: the metric line `promoted: N | rejected: N | ephemeral: N (totals: P/R/E)` (promoted and rejected totals from ledger-project.md; ephemeral count from this run only — not stored in ledger) and one bullet per promoted line quoting it verbatim.
-10. Move all processed retro files to `~/.claude/worklog/retros/processed/` (create the directory if absent).
+10. Re-count the retro inbox and move only the files you processed to `~/.claude/worklog/retros/processed/` (create the directory if absent) — retros arrive concurrently from other roles' end-of-task hooks, and a single count silently skips late arrivals.
 
 ## Per-item algorithm
 
