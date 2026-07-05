@@ -65,11 +65,7 @@ message: <one line, max 80 chars>
 - If a tmux wake-up arrives while already working on a task, ignore it.
 - When the task or batch is fully complete, send any outbound handoff first, then run `agent-retro`, then run `done_with_current.sh`.
 - `note` handoffs are tasks too; after reading or acting on a note, run
-  `done_with_current.sh` before accepting any other handoff. Accepting or
-  completing a `note` only advances the queue; it never changes git state.
-- If a pickup helper warns that local commits are ahead of trunk, it has
-  skipped the trunk sync to protect them. Push or hand off those commits;
-  do not reset the worktree by hand.
+  `done_with_current.sh` before accepting any other handoff.
 - If `done_with_current.sh` prints `TASK: <path>`, treat the printed `PAYLOAD`
   as the next task.
 - If `done_with_current.sh` prints `BATCH: <path>`, treat each printed

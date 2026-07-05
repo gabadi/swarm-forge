@@ -97,12 +97,12 @@
         (cond
           (nil? ahead)
           (binding [*out* *err*]
-            (println "WARNING: could not count commits ahead of" default-branch "; skipping trunk sync"))
+            (println (str "WARNING: could not count commits ahead of " default-branch "; skipping trunk sync")))
 
           (pos? ahead)
           (binding [*out* *err*]
-            (println "WARNING:" ahead "local commit(s) ahead of" default-branch
-                     "-- skipping trunk sync; push them or wait for the integrator merge"))
+            (println (str "WARNING: " ahead " local commit(s) ahead of " default-branch
+                          " -- skipping trunk sync; push them or wait for the integrator merge; do not reset by hand")))
 
           :else
           (let [reset-result (sh/sh "git" "reset" "--hard" default-branch)]

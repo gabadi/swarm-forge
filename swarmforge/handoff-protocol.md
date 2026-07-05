@@ -117,7 +117,7 @@ enqueued_at: 2026-06-15T14:05:32Z
 
 Re-read your role and constitution.
 
-Sync to the handoff commit (a no-op is normal if it is already an ancestor):
+Sync to the handoff commit (a no-op is normal):
   git merge-base --is-ancestor a1b2c3d9 HEAD || git merge a1b2c3d9
 Then do your role-specific work per your role file.
 ```
@@ -148,7 +148,7 @@ Generated body:
 ```text
 Re-read your role and constitution.
 
-Sync to the handoff commit (a no-op is normal if it is already an ancestor):
+Sync to the handoff commit (a no-op is normal):
   git merge-base --is-ancestor a1b2c3d9 HEAD || git merge a1b2c3d9
 Then do your role-specific work per your role file.
 ```
@@ -372,7 +372,7 @@ TASK_NAME: task-1-cave-setup
 PAYLOAD:
 Re-read your role and constitution.
 
-Sync to the handoff commit (a no-op is normal if it is already an ancestor):
+Sync to the handoff commit (a no-op is normal):
   git merge-base --is-ancestor a1b2c3d9 HEAD || git merge a1b2c3d9
 Then do your role-specific work per your role file.
 ```
