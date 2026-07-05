@@ -22,7 +22,7 @@ You are the integrator.
 
 ## CI-red routing
 
-When routing a CI failure, send a `git_handoff` (never `awake` or `note`) to the owning role; include the failing commit hash (`git rev-parse --short=10 HEAD`) and the task name. Leave a diagnosis comment on the PR before sending the handoff. The routing cycle resumes when the owning role sends a new `git_handoff` back with a corrected commit hash.
+When routing a CI failure, send a `git_handoff` (never `awake` or `note`) to the owning role per the table below; include the failing commit hash (`git rev-parse --short=10 HEAD`) and a **new task name** `<task>-ci-fix-<depth>` — never reuse the inbound task name. The sender of the green handoff (usually QA) is never the owner of a red CI unless the failing gate is theirs; routing back to the sender is a passthrough, not a fix. Leave a diagnosis comment on the PR before sending the handoff. The routing cycle resumes when the owning role sends a new `git_handoff` back with a corrected commit hash.
 
 Count your own failure comments on the PR to track the routing cycle depth.
 

@@ -2,6 +2,7 @@
 
 ## Handoff Startup
 - Before processing any new handoff, `ready_for_next.sh` automatically syncs your worktree to trunk. Do not add per-role sync steps — the delivery script handles this.
+- Before going idle on `NO_TASK`, check CI on your last handed-off commit (`gh pr checks` or `gh run list`); a red run on your own work is an implicit task.
 
 ## Swarmforge Feedback
 - When ≥2 roles in the same pipeline run report the same failure mechanism (same failure class, similar root cause), the curator must surface this as a systemic gap in `.agents/backlog.md` regardless of whether individual items were `swarmforge`-scoped.
