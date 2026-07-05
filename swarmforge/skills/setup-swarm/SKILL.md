@@ -65,14 +65,15 @@ If `entire` is not installed: print a warning ("entire not found — session tra
 
 > **pi backend:** skip this step entirely. pi has no permission-prompt system and no per-command allowlist; it runs autonomously by default. The `./swarm` launcher passes `--approve` to pi so project resources load unattended. There is nothing to configure for pi here.
 
-For the **claude** backend, write minimal allow-rules to `.claude/settings.json` so the integrator and specifier can run their necessary git/gh commands unattended. Read the current file first (create `{}` if absent), merge in these two rules, and write it back:
+For the **claude** backend, write minimal allow-rules to `.claude/settings.json` so the integrator, specifier, and agent-retro can run their necessary commands unattended. Read the current file first (create `{}` if absent), merge in these three rules, and write it back:
 
 ```json
 {
   "permissions": {
     "allow": [
       "Bash(gh pr merge*)",
-      "Bash(git reset --hard*)"
+      "Bash(git reset --hard*)",
+      "Bash(entire session info*)"
     ]
   }
 }
@@ -84,12 +85,33 @@ import json, pathlib
 p = pathlib.Path('.claude/settings.json')
 cfg = json.loads(p.read_text()) if p.exists() else {}
 cfg.setdefault('permissions', {}).setdefault('allow', [])
-for rule in ['Bash(gh pr merge*)', 'Bash(git reset --hard*)']:
+for rule in ['Bash(gh pr merge*)', 'Bash(git reset --hard*)', 'Bash(entire session info*)']:
     if rule not in cfg['permissions']['allow']:
         cfg['permissions']['allow'].append(rule)
 p.parent.mkdir(exist_ok=True)
 p.write_text(json.dumps(cfg, indent=2))
 ```
+
+**Auto-mode layer (required in addition to the rules above).** Claude Code's auto-mode classifier evaluates intent separately from `permissions.allow`; an allowlisted command can still be blocked at run time. `autoMode` is only read from **user-level** `~/.claude/settings.json` — it is explicitly not read from project settings, so it cannot ship in the repo. Tell the operator you are updating their user-level settings, then merge:
+
+```python
+import json, pathlib
+p = pathlib.Path.home() / '.claude' / 'settings.json'
+cfg = json.loads(p.read_text()) if p.exists() else {}
+allow = cfg.setdefault('autoMode', {}).setdefault('allow', [])
+for rule in [
+    '$defaults',
+    'Merging PRs is a routine pipeline step performed by the integrator role on every run',
+    'git reset --hard on swarm worktrees is a routine startup sync performed on every handoff',
+    'Reading session transcripts via entire session info is a routine agent-retro step on every run',
+]:
+    if rule not in allow:
+        allow.append(rule)
+p.parent.mkdir(exist_ok=True)
+p.write_text(json.dumps(cfg, indent=2))
+```
+
+Both layers are required; neither substitutes for the other.
 
 ---
 
