@@ -44,6 +44,8 @@ cp gherkin-parser gherkin-mutator /usr/local/bin/ 2>/dev/null || cp gherkin-pars
 ```
 Warn and continue if the build fails (APS tools are quality-of-life, not blocking).
 
+**Provisioning policy:** anything built during setup that agents will invoke later MUST be installed to a persistent PATH location (`~/.local/bin` or `/usr/local/bin`). `/tmp` build directories are disposable by definition and may not be referenced by role procedures or local articles.
+
 ---
 
 ## Step 3 — Session tracking with entire
@@ -160,7 +162,23 @@ The extension path itself is resolved by the launcher (`swarmforge/scripts/exten
 
 ---
 
-## Step 7 — Emit the swarm-ready marker
+## Step 7 — Verify the installation
+
+Resolve every binary this setup installed, by the name role procedures will use. Build the list from what actually happened in Steps 2–3: the quality tools for the chosen stack (exact binary names from the tool tables), the APS tools **if their build succeeded** (`gherkin-parser`, `gherkin-mutator`), `entire` **if Step 3 ran**, and the handoff helpers (`swarm_handoff.sh`, `ready_for_next.sh`, `done_with_current.sh`).
+
+```bash
+missing=""
+for bin in <resolved-list>; do
+  command -v "$bin" >/dev/null 2>&1 || missing="$missing $bin"
+done
+[ -z "$missing" ] || { echo "SETUP FAILED — not on PATH:$missing"; exit 1; }
+```
+
+Fail the setup loudly here — a missing name at setup time is cheap; the same gap mid-pipeline stalls a role silently. If a tool table names a binary differently from what the install produced, fix the local article to the real name now; this list is the canonical name manifest role prompts rely on.
+
+---
+
+## Step 8 — Emit the swarm-ready marker
 
 ```bash
 mkdir -p .swarmforge
