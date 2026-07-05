@@ -243,6 +243,24 @@
      :canonical-commit canonical
      :errors (vec (concat base-errors recipient-errors field-errors git-errors note-errors))}))
 
+(defn tail-lines [s n]
+  (->> (str/split-lines s) (take-last n) (str/join "\n")))
+
+(defn run-verify-gate! [type]
+  (when (= "git_handoff" type)
+    (let [verify-file (fs/path (project-root) ".swarmforge" "verify-command")]
+      (when (fs/regular-file? verify-file)
+        (let [cmd (str/trim (slurp (str verify-file)))]
+          (when-not (str/blank? cmd)
+            (if (= "1" (System/getenv "SWARMFORGE_HANDOFF_NO_VERIFY"))
+              (binding [*out* *err*]
+                (println "WARNING: verification skipped (SWARMFORGE_HANDOFF_NO_VERIFY=1)"))
+              (let [result (sh "sh" "-c" cmd)]
+                (when-not (zero? (:exit result))
+                  (exit! 3 (str "HANDOFF REFUSED: verification failed: " cmd "\n"
+                                (tail-lines (str (:out result) (:err result)) 20) "\n"
+                                "Fix the tree and rerun. For a handoff with no code change, set SWARMFORGE_HANDOFF_NO_VERIFY=1.")))))))))))
+
 (defn next-sequence []
   (let [dir (state-dir)
         seq-file (fs/path dir "sequence")
@@ -340,6 +358,7 @@
         (when (seq all-errors)
           (error-report draft all-errors)
           (System/exit 2))
+        (run-verify-gate! (get headers "type"))
         (let [outbox-file (write-handoff! {:headers headers
                                            :recipients (:recipients validation)
                                            :canonical-commit (:canonical-commit validation)

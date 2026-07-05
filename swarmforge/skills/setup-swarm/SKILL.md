@@ -141,6 +141,12 @@ echo "<branch-name>" > .swarmforge/default-branch
 ```
 This file lets the specifier reset to origin's default branch without hard-coding the name.
 
+Then ask the operator for the project's verification command — the compile/build step at minimum, the fast test suite if affordable — and record it:
+```bash
+echo "<verification-command>" > .swarmforge/verify-command
+```
+`swarm_handoff.sh` runs this before queuing every `git_handoff` and refuses the handoff if it fails, so broken trees stop at the sender instead of costing a CI round-trip. If the operator declines, skip the file; the gate stays off.
+
 ---
 
 ## Step 6 — pi backend settings (skip if no pi role)

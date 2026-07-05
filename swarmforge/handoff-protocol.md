@@ -220,6 +220,10 @@ Responsibilities:
 - Validate `type` as `git_handoff` or `note`.
 - Validate `git_handoff` commits as real, unambiguous commits.
 - Canonicalize valid commit abbreviations.
+- If `.swarmforge/verify-command` exists and is non-empty, run it before
+  queuing a `git_handoff` and refuse the handoff (exit 3, draft preserved) on
+  non-zero exit. `note` messages are exempt. `SWARMFORGE_HANDOFF_NO_VERIFY=1`
+  skips the gate with a warning, for handoffs carrying no code change.
 - Generate `role` from the current sender role for `git_handoff`.
 - Preserve `task` from the draft for `git_handoff`.
 - Generate the canonical body.

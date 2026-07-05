@@ -163,6 +163,46 @@
           (is (fs/exists? queued))
           (is (not (fs/exists? draft))))))))
 
+(deftest verify-gate-refuses-git-handoff-on-red-tree
+  (let [root (tmp-dir)
+        commit (init-repo! root)]
+    (setup-project! root)
+    (write-file (fs/path root ".swarmforge" "verify-command") "exit 1\n")
+    (let [draft (fs/path root "tmp" "gated.handoff")]
+      (write-file draft (format "type: git_handoff\nto: receiver\npriority: 50\ntask: task-gated\ncommit: %s\n" commit))
+      (testing "failing verify command refuses the handoff and preserves the draft"
+        (let [result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"} :ok? false}
+                          (script "swarm_handoff.sh") (str draft))]
+          (is (= 3 (:exit result)))
+          (is (str/includes? (:err result) "HANDOFF REFUSED: verification failed"))
+          (is (fs/exists? draft))))
+      (testing "SWARMFORGE_HANDOFF_NO_VERIFY=1 bypasses the gate with a warning"
+        (let [result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"
+                                           "SWARMFORGE_HANDOFF_NO_VERIFY" "1"}}
+                          (script "swarm_handoff.sh") (str draft))]
+          (is (str/includes? (:err result) "verification skipped"))
+          (is (str/includes? (:out result) "HANDOFF QUEUED:"))
+          (is (not (fs/exists? draft))))))))
+
+(deftest verify-gate-passes-green-tree-and-exempts-notes
+  (let [root (tmp-dir)
+        commit (init-repo! root)]
+    (setup-project! root)
+    (testing "passing verify command lets the git_handoff through"
+      (write-file (fs/path root ".swarmforge" "verify-command") "true\n")
+      (let [draft (fs/path root "tmp" "green.handoff")]
+        (write-file draft (format "type: git_handoff\nto: receiver\npriority: 50\ntask: task-green\ncommit: %s\n" commit))
+        (let [result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"}}
+                          (script "swarm_handoff.sh") (str draft))]
+          (is (str/includes? (:out result) "HANDOFF QUEUED:")))))
+    (testing "notes are exempt from the gate"
+      (write-file (fs/path root ".swarmforge" "verify-command") "exit 1\n")
+      (let [draft (fs/path root "tmp" "fyi.handoff")]
+        (write-file draft "type: note\nto: receiver\npriority: 50\nmessage: Just an FYI.\n")
+        (let [result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"}}
+                          (script "swarm_handoff.sh") (str draft))]
+          (is (str/includes? (:out result) "HANDOFF QUEUED:")))))))
+
 (deftest ready-for-next-task-accepts-and-resumes-single-tasks
   (let [root (tmp-dir)]
     (init-repo! root)
