@@ -3,6 +3,11 @@
 ## Architect Pre-Handoff
 - Before handing off to the hardender, extract pure aggregation logic out of side-effectful loops (I/O, process spawning, network) into its own function — outcomes in, results out, no side effects — so mutations to it die in unit tests instead of timeouts.
 
+## Delegation
+- A fork's success report is a claim, not a result: before building on it, re-run the narrowest verification that would catch the claimed change failing.
+- Include the expected verification step in every fork prompt, so your re-check confirms rather than discovers.
+- Never state a fork's outcome — in handoffs, commits, or notes — before its completion notification has arrived.
+
 ## Harness Shell Idioms
 These patterns fail or diverge inside the agent harness; use the substitute.
 - `sleep N && cmd` chains and "wait then retry": blocked — retry immediately or use the harness background-run/monitor facility.
