@@ -1,6 +1,6 @@
 ---
 name: retro-triage
-description: Use when unprocessed session retros sit in ~/.claude/worklog/retros/ and a batch needs root-cause analysis across the sessions. Triggers on "triage the retros", "consolidate retros", "what did we learn this batch", "file issues from the last sessions", "any new pains from the swarm runs".
+description: Use when unprocessed session retros sit in ~/.claude/worklog/retros/ or downstream projects have pending entries in .agents/ledger-swarmforge.md, and a batch needs root-cause analysis across the sessions. Triggers on "triage the retros", "consolidate retros", "what did we learn this batch", "file issues from the last sessions", "any new pains from the swarm runs", "harvest the downstream ledgers", "drain the swarmforge ledger".
 ---
 
 # retro-triage
@@ -41,6 +41,7 @@ This is NOT `mattpocock-skills:triage`. That skill triages *incoming* issues fro
 3. **Open issues** — `gh issue list --state open --limit 50 --json number,title,labels`.
 4. **Project gotchas** — only the `## Gotchas` section of the repo's `AGENTS.md`. Read other repo files (role prompts, constitution, scripts) only when a signal explicitly references them for diagnosis.
 5. **Closed issues (on-demand)** — only when a signal smells pre-decided. Dispatch a Haiku subagent with `gh issue list --state closed --search "<keywords>"`; do not pull closed-issue text into main context.
+6. **Downstream engine ledgers (pull harvest)** — for each downstream SwarmForge project the operator names (default: sibling directories of this repo containing `.agents/ledger-swarmforge.md`), every entry with `status: pending`. These are engine-scoped learnings the downstream curator captured but cannot apply; this skill is their only consumer — un-harvested, they accumulate forever. Ledger entries enter Phase 1 as signals exactly like retro lines: verbatim, with session id; the curated one-line rule is still the author's framing, never a finding.
 
 Context discipline for the bulk read is defined in Phase 1 (one subagent, never split).
 
@@ -183,6 +184,16 @@ When the human approves filing, follow the authoring contract per Bucket-3/Bucke
 - Bucket 2: post the clarification comment with `gh issue comment`; ensure category+state labels are present.
 - Verify every touched issue ends with exactly one category label and one state label.
 - Close any issue whose feature has demonstrably landed (cite the merged PR/commit).
+
+## Post-step: drain harvested downstream ledgers
+
+Every harvested `ledger-swarmforge.md` entry gets its status updated in the downstream repo as part of this triage (committed via that project's normal knowledge flow), so the queue provably drains:
+
+- `applied` — an engine change resolving it has landed on swarm-forge main; append the commit/PR to the entry.
+- `stale` — rejected in triage (mis-framed, superseded, or the gap is already mechanically closed); append the consolidation-doc date.
+- leave `pending` — triaged into an open engine issue but not yet landed; append the issue number so the next harvest skips re-triaging it.
+
+`applied` means "landed in the engine", nothing else. Items the downstream curator re-scopes to its own project carry `promoted→project` — set downstream, never by this skill.
 
 ## Post-step: stamp source retros
 
