@@ -2,3 +2,12 @@
 
 ## Architect Pre-Handoff
 - Before handing off to the hardender, extract pure aggregation logic out of side-effectful loops (I/O, process spawning, network) into its own function — outcomes in, results out, no side effects — so mutations to it die in unit tests instead of timeouts.
+
+## Harness Shell Idioms
+These patterns fail or diverge inside the agent harness; use the substitute.
+- `sleep N && cmd` chains and "wait then retry": blocked — retry immediately or use the harness background-run/monitor facility.
+- Polling a long run by re-reading its log in a loop: use the monitor facility with a filter on the log file.
+- Spawned subprocesses inheriting pipe FDs can hang: redirect stdio to null; prototype spawn→poll→kill→wait in a fixture before relying on it.
+- `timeout <n> cmd` does not exist on macOS: use the tool's own watch/timeout flag.
+- Output-suppressing wrappers corrupt data consumed by downstream parsers: use the bare command when output feeds a tool.
+- A command blocked despite matching `permissions.allow` is the auto-mode layer, not the harness: see setup-swarm Step 4.
