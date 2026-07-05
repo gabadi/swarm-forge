@@ -32,7 +32,7 @@ The retro file's `Session ID` header is the trace anchor for all non-ephemeral p
 
 Two audit files replace `ledger.md`:
 - `.agents/ledger-project.md` — permanent, append-only. Contains only `promoted` and `rejected→first-occurrence` items. All other rejection reasons are silent — do not log them. Format: `<date> | <session-id> | <role> | <failure-class> | <verdict> | <one-line summary>`
-- `.agents/ledger-swarmforge.md` — work queue, prunable. Contains only `swarmforge`-scoped items. Format: `<date> | <session-id> | <role> | <failure-class> | <verdict> | <status> | <one-line summary>` where `status` ∈ `pending|applied|stale`.
+- `.agents/ledger-swarmforge.md` — work queue, prunable. Contains only `swarmforge`-scoped items. Format: `<date> | <session-id> | <role> | <failure-class> | <verdict> | <status> | <one-line summary>` where `status` ∈ `pending|applied|stale|promoted→project`. You set `pending` on append and `promoted→project` when re-scoping a pending item to this project; `applied` and `stale` are set by the engine-side retro-triage harvest, which drains this queue.
 
 Ephemerals are recorded only in the PR body metric line (not in any ledger file).
 
