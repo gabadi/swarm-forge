@@ -6,6 +6,10 @@
 - Python: install with uv; mutation `mutate4py`, CRAP `crap4py`, DRY `drywall`.
 - drywall: download the platform binary from the latest `github.com/gabadi/drywall` release (`drywall-linux-x86_64`, `drywall-macos-aarch64`, or `drywall-macos-x86_64`), `chmod +x`, place on PATH. Fallback: `cargo install --git https://github.com/gabadi/drywall`.
 
+## Lint/Format
+- Run the project's formatter in check mode and its linter before every handoff; fix all failures and warnings.
+- Defaults when the project defines none: Rust `cargo fmt --check` and `cargo clippy --all-targets --release`; Python `ruff format --check` and `ruff check`; JS/TS the repo's configured formatter and linter commands.
+
 ## Branch Coverage
 - Always enable branch coverage for these rows; the CRAP and mutation tools require LCOV BRDA records.
 - Python: `pytest --cov --cov-branch --cov-report=lcov:lcov.info` (or `branch = True` in the coverage config).
