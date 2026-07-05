@@ -1,0 +1,4 @@
+# Fork Engineering Rules
+
+## Architect Pre-Handoff
+- Before handing off to the hardender, extract pure aggregation logic out of side-effectful loops (I/O, process spawning, network) into its own function — outcomes in, results out, no side effects — so mutations to it die in unit tests instead of timeouts.
