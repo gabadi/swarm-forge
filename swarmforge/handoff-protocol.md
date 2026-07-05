@@ -117,7 +117,9 @@ enqueued_at: 2026-06-15T14:05:32Z
 
 Re-read your role and constitution.
 
-merge_and_process coder a1b2c3d9
+Sync to the handoff commit (a no-op is normal if it is already an ancestor):
+  git merge-base --is-ancestor a1b2c3d9 HEAD || git merge a1b2c3d9
+Then do your role-specific work per your role file.
 ```
 
 For broadcast handoffs, `to` preserves the full recipient list and `recipient`
@@ -146,8 +148,15 @@ Generated body:
 ```text
 Re-read your role and constitution.
 
-merge_and_process coder a1b2c3d9
+Sync to the handoff commit (a no-op is normal if it is already an ancestor):
+  git merge-base --is-ancestor a1b2c3d9 HEAD || git merge a1b2c3d9
+Then do your role-specific work per your role file.
 ```
+
+The generated merge instruction is self-guarding: the recipient's worktree may
+already contain the handoff commit (the pickup helpers sync to trunk, and
+post-merge notifications carry trunk hashes), in which case the merge is
+skipped and that is the expected outcome, not an anomaly.
 
 The script validates the task name and canonicalizes the commit abbreviation
 before queuing the handoff. The task name is a short, stable human-readable
@@ -343,6 +352,10 @@ Responsibilities:
   filename order.
 - Atomically move that file to `inbox/in_process/`.
 - Add or update `dequeued_at`.
+- If the accepted message is a `git_handoff`, fetch and sync the worktree to
+  the trunk ref before printing. Skip the sync — with a warning — when local
+  commits are ahead of trunk, so unmerged work is never destroyed.
+- Accepting a `note` performs no git operations.
 - Print the accepted task path, sender, message type, priority, and payload.
 - Print `NO_TASK` if no inbox item is available.
 - Refuse ambiguous states, such as multiple in-process files, unless an explicit
@@ -359,7 +372,9 @@ TASK_NAME: task-1-cave-setup
 PAYLOAD:
 Re-read your role and constitution.
 
-merge_and_process architect a1b2c3d9
+Sync to the handoff commit (a no-op is normal if it is already an ancestor):
+  git merge-base --is-ancestor a1b2c3d9 HEAD || git merge a1b2c3d9
+Then do your role-specific work per your role file.
 ```
 
 ### `done_with_current_task.sh`
@@ -395,6 +410,10 @@ Responsibilities:
 - Move those files into one `inbox/in_process/batch_<timestamp>_<suffix>/`
   directory.
 - Add or update `dequeued_at` on each selected file.
+- If any accepted message is a `git_handoff`, fetch and sync the worktree to
+  the trunk ref before printing. Skip the sync — with a warning — when local
+  commits are ahead of trunk, so unmerged work is never destroyed.
+- Accepting a batch of only `note` messages performs no git operations.
 - Print the accepted batch path, count, priority, and each task payload in
   helper-delivered order.
 - Print `NO_TASK` if no inbox item is available.
@@ -451,7 +470,8 @@ Prompts should instruct agents to follow this loop:
 7. If a tmux wake-up arrives while already working on a task, ignore it.
 8. When the task or batch is fully complete, run `done_with_current.sh`.
 9. Treat `note` handoffs as tasks too; after reading or acting on a note, run
-   `done_with_current.sh` before accepting any other handoff.
+   `done_with_current.sh` before accepting any other handoff. Accepting or
+   completing a `note` only advances the queue; it performs no git operations.
 10. If a done helper prints `TASK: <path>`, treat the printed `PAYLOAD` as the
    next task.
 11. If a done helper prints `BATCH: <path>`, treat each printed `BATCH_ITEM` as

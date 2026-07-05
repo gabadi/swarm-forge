@@ -273,7 +273,10 @@
 
 (defn body [type sender canonical-commit note-message]
   (case type
-    "git_handoff" (str "Re-read your role and constitution.\n\nRun: git merge " canonical-commit "\nThen do your role-specific work per your role file.")
+    "git_handoff" (str "Re-read your role and constitution.\n\n"
+                       "Sync to the handoff commit (a no-op is normal if it is already an ancestor):\n"
+                       "  git merge-base --is-ancestor " canonical-commit " HEAD || git merge " canonical-commit "\n"
+                       "Then do your role-specific work per your role file.")
     "note" (str "Re-read your role and constitution.\n\n" note-message)))
 
 (defn write-handoff! [{:keys [headers recipients canonical-commit sender]}]

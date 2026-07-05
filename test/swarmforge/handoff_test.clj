@@ -114,6 +114,28 @@
                          :body "Run: git merge 0123456789\nThen do your role-specific work per your role file."}
                         attrs))))
 
+(defn commit-change! [root filename message]
+  (write-file (fs/path root filename) (str message "\n"))
+  (run {:dir root} "git" "add" filename)
+  (run {:dir root} "git" "commit" "-q" "-m" message)
+  (str/trim (:out (run {:dir root} "git" "rev-parse" "HEAD"))))
+
+(defn head-of [root]
+  (str/trim (:out (run {:dir root} "git" "rev-parse" "HEAD"))))
+
+(defn init-remote-and-clone!
+  "Create an origin repo plus a clone with origin/HEAD configured.
+  Returns {:origin <path> :clone <path>}."
+  []
+  (let [origin (tmp-dir)
+        clone-parent (tmp-dir)
+        clone (fs/path clone-parent "clone")]
+    (init-repo! origin)
+    (run {:dir clone-parent} "git" "clone" "-q" (str origin) "clone")
+    (run {:dir clone} "git" "config" "user.email" "test@example.com")
+    (run {:dir clone} "git" "config" "user.name" "Test User")
+    {:origin origin :clone clone}))
+
 (deftest swarm-handoff-validates-and-queues-git-handoffs
   (let [root (tmp-dir)
         commit (init-repo! root)]
@@ -135,7 +157,8 @@
               content (read-file queued)]
           (is (str/includes? content "task: task-1-cave-setup\n"))
           (is (str/includes? content (str "commit: " commit "\n")))
-          (is (str/includes? content (str "Run: git merge " commit)))
+          (is (str/includes? content (str "git merge-base --is-ancestor " commit " HEAD || git merge " commit)))
+          (is (str/includes? content "a no-op is normal"))
           (is (str/includes? content "Then do your role-specific work per your role file."))
           (is (fs/exists? queued))
           (is (not (fs/exists? draft))))))))
@@ -165,6 +188,87 @@
                         (script "ready_for_next.sh"))]
         (is (str/includes? (:out result) "task-alpha"))
         (is (fs/exists? (fs/path root ".swarmforge/handoffs/inbox/new/40_20260615T000002Z_000002_from_sender_to_receiver.handoff")))))))
+
+(deftest git-handoff-pickup-syncs-worktree-to-trunk
+  (let [{:keys [origin clone]} (init-remote-and-clone!)]
+    (setup-project! clone {"receiver" "task"})
+    (let [origin-head (commit-change! origin "advance.txt" "advance trunk")]
+      (make-queued-handoff! clone "50_20260615T000001Z_000001_from_sender_to_receiver.handoff"
+                            {:id "20260615T000001Z_000001_from_sender"
+                             :task "task-sync"})
+      (let [result (run {:dir clone :env {"SWARMFORGE_ROLE" "receiver"}}
+                        (script "ready_for_next.sh"))]
+        (is (str/includes? (:out result) "TASK_NAME: task-sync"))
+        (is (= origin-head (head-of clone)))))))
+
+(deftest git-handoff-pickup-preserves-local-commits-ahead-of-trunk
+  (let [{:keys [origin clone]} (init-remote-and-clone!)]
+    (setup-project! clone {"receiver" "task"})
+    (commit-change! origin "advance.txt" "advance trunk")
+    (let [local-head (commit-change! clone "local-work.txt" "unpushed local work")]
+      (make-queued-handoff! clone "50_20260615T000001Z_000001_from_sender_to_receiver.handoff"
+                            {:id "20260615T000001Z_000001_from_sender"
+                             :task "task-guarded"})
+      (let [result (run {:dir clone :env {"SWARMFORGE_ROLE" "receiver"}}
+                        (script "ready_for_next.sh"))]
+        (is (str/includes? (:out result) "TASK_NAME: task-guarded"))
+        (is (str/includes? (:err result) "skipping trunk sync"))
+        (is (= local-head (head-of clone)))
+        (is (fs/exists? (fs/path clone "local-work.txt")))))))
+
+(deftest note-pickup-performs-no-git-operations
+  (let [{:keys [origin clone]} (init-remote-and-clone!)
+        clone-head (head-of clone)
+        stale-remote-ref (str/trim (:out (run {:dir clone} "git" "rev-parse" "origin/HEAD")))]
+    (setup-project! clone {"receiver" "task"})
+    (commit-change! origin "advance.txt" "advance trunk")
+    (make-queued-handoff! clone "50_20260615T000001Z_000001_from_sender_to_receiver.handoff"
+                          {:id "20260615T000001Z_000001_from_sender"
+                           :type "note"
+                           :task nil
+                           :commit nil
+                           :body "Waiting on QA result."})
+    (let [result (run {:dir clone :env {"SWARMFORGE_ROLE" "receiver"}}
+                      (script "ready_for_next.sh"))]
+      (is (str/includes? (:out result) "TYPE: note"))
+      (is (= clone-head (head-of clone)))
+      (is (= stale-remote-ref
+             (str/trim (:out (run {:dir clone} "git" "rev-parse" "origin/HEAD"))))))))
+
+(deftest note-only-batch-pickup-performs-no-git-operations
+  (let [{:keys [origin clone]} (init-remote-and-clone!)
+        clone-head (head-of clone)
+        stale-remote-ref (str/trim (:out (run {:dir clone} "git" "rev-parse" "origin/HEAD")))]
+    (setup-project! clone {"receiver" "batch"})
+    (commit-change! origin "advance.txt" "advance trunk")
+    (make-queued-handoff! clone "50_20260615T000001Z_000001_from_sender_to_receiver.handoff"
+                          {:id "20260615T000001Z_000001_from_sender"
+                           :type "note" :task nil :commit nil
+                           :body "First FYI."})
+    (make-queued-handoff! clone "50_20260615T000002Z_000002_from_sender_to_receiver.handoff"
+                          {:id "20260615T000002Z_000002_from_sender"
+                           :type "note" :task nil :commit nil
+                           :body "Second FYI."})
+    (let [result (run {:dir clone :env {"SWARMFORGE_ROLE" "receiver"}}
+                      (script "ready_for_next.sh"))]
+      (is (str/includes? (:out result) "COUNT: 2"))
+      (is (= clone-head (head-of clone)))
+      (is (= stale-remote-ref
+             (str/trim (:out (run {:dir clone} "git" "rev-parse" "origin/HEAD"))))))))
+
+(deftest batch-pickup-with-git-handoff-preserves-local-commits-ahead-of-trunk
+  (let [{:keys [origin clone]} (init-remote-and-clone!)]
+    (setup-project! clone {"receiver" "batch"})
+    (commit-change! origin "advance.txt" "advance trunk")
+    (let [local-head (commit-change! clone "local-work.txt" "unpushed local work")]
+      (make-queued-handoff! clone "50_20260615T000001Z_000001_from_sender_to_receiver.handoff"
+                            {:id "20260615T000001Z_000001_from_sender"
+                             :task "task-batch-guarded"})
+      (let [result (run {:dir clone :env {"SWARMFORGE_ROLE" "receiver"}}
+                        (script "ready_for_next.sh"))]
+        (is (str/includes? (:out result) "TASK_NAME: task-batch-guarded"))
+        (is (str/includes? (:err result) "skipping trunk sync"))
+        (is (= local-head (head-of clone)))))))
 
 (deftest ready-for-next-batch-groups-equal-priority-handoffs
   (let [root (tmp-dir)]

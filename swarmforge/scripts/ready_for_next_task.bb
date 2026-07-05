@@ -91,10 +91,24 @@
         default-branch (when (zero? (:exit branch-result))
                          (str/trim (:out branch-result)))]
     (if default-branch
-      (let [reset-result (sh/sh "git" "reset" "--hard" default-branch)]
-        (when-not (zero? (:exit reset-result))
+      (let [ahead-result (sh/sh "git" "rev-list" "--count" (str default-branch "..HEAD"))
+            ahead (when (zero? (:exit ahead-result))
+                    (parse-long (str/trim (:out ahead-result))))]
+        (cond
+          (nil? ahead)
           (binding [*out* *err*]
-            (println "WARNING: git reset --hard" default-branch "failed:" (str/trim (:err reset-result))))))
+            (println "WARNING: could not count commits ahead of" default-branch "; skipping trunk sync"))
+
+          (pos? ahead)
+          (binding [*out* *err*]
+            (println "WARNING:" ahead "local commit(s) ahead of" default-branch
+                     "-- skipping trunk sync; push them or wait for the integrator merge"))
+
+          :else
+          (let [reset-result (sh/sh "git" "reset" "--hard" default-branch)]
+            (when-not (zero? (:exit reset-result))
+              (binding [*out* *err*]
+                (println "WARNING: git reset --hard" default-branch "failed:" (str/trim (:err reset-result))))))))
       (binding [*out* *err*]
         (println "WARNING: could not resolve default branch; skipping trunk sync")))))
 
@@ -132,7 +146,8 @@
                 (fail! 2 (str "AMBIGUOUS_TASK_STATE: target in-process file already exists: " target-file)))
               (fs/move source-file target-file)
               (set-header! target-file "dequeued_at" (timestamp))
-              (sync-to-trunk!)
+              (when (= "git_handoff" (header-value target-file "type" ""))
+                (sync-to-trunk!))
               (print-task target-file))))))))
 
 (-main)
