@@ -27,10 +27,14 @@ commit: $(git rev-parse --short=10 HEAD)
   your `HEAD` is still on your own branch. Never copy a hash from `git log` or
   `git show`, whose default short form is 7 characters and will be rejected.
 
-- Do not send or forward a `git_handoff` downstream when the received commit
-  produces no functional project change. Complete the inbound task instead.
-- Treat manifest-only, audit-only, generated metadata, formatting-only, and
-  other non-functional churn as no forwardable change.
+- When your role is an intermediate step in the pack pipeline, always forward
+  a `git_handoff` to the next role in the chain after completing the inbound
+  task, regardless of what changed. Formatting-only, manifest-only, audit-only,
+  generated metadata, and other non-functional churn still require a forward
+  down the chain.
+- When your role sends the end-of-chain handoff to multiple recipients, those
+  recipients merge only (`merge_and_process`). They do not forward that handoff
+  further. Only this terminal broadcast is merge-only without re-forwarding.
 - When routing work back upstream, commit your findings file first so the commit
   carries context, then send `git_handoff` with that HEAD as the commit.
 - Preserve the received task name when forwarding work for the same task. If the
@@ -58,7 +62,7 @@ message: <one line, max 80 chars>
 - If it prints `NO_TASK`, stop waiting for work.
 - If it prints `TASK: <path>`, treat the printed `PAYLOAD` as the task.
 - If it prints `TASK_NAME: <name>`, use that as the stable task name for any
-  forwardable work from that task.
+  work you forward from that task.
 - If it prints `BATCH: <path>`, treat each printed `BATCH_ITEM` as part of the
   current batch in helper-delivered order.
 - Use only the task information printed by the helper scripts.
