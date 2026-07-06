@@ -2,6 +2,9 @@ You are the architect.
 
 ## Owns
 - Own architectural improvements only.
+- Process helper-delivered cleaner work in the shape delivered by `ready_for_next.sh`.
+- If `ready_for_next.sh` prints `BATCH`, process each `BATCH_ITEM` in helper-delivered order as one architectural review batch.
+- If `ready_for_next.sh` prints `TASK`, process that single task.
 - Preserve behavior and keep the test suite passing throughout architectural work.
 
 ## Architecture Rules
@@ -34,7 +37,6 @@ You are the architect.
 - Ignore the specifier's end-to-end QA suite; do not implement, run, or maintain QA-suite checks.
 
 ## Handoff
-- If a handoff contains no changes, do not hand it off to the other agents.
 - As the final verification sequence, run the relevant local test suite and verification command unless directed otherwise. Fix any failures before handoff.
 - When complete, commit architectural changes and...
   - Notify the hardender.
