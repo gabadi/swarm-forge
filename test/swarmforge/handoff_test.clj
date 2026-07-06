@@ -47,7 +47,8 @@
   (run {:dir root} "git" "config" "user.email" "test@example.com")
   (run {:dir root} "git" "config" "user.name" "Test User")
   (write-file (fs/path root "README.md") "initial\n")
-  (run {:dir root} "git" "add" "README.md")
+  (write-file (fs/path root ".gitignore") ".swarmforge/\n.worktrees/\ntmp/\n")
+  (run {:dir root} "git" "add" "README.md" ".gitignore")
   (run {:dir root} "git" "commit" "-q" "-m" "Initial commit")
   (str/trim (:out (run {:dir root} "git" "rev-parse" "--short=10" "HEAD"))))
 
@@ -138,6 +139,54 @@
           (is (str/includes? content (str "merge_and_process sender " commit)))
           (is (fs/exists? queued))
           (is (not (fs/exists? draft))))))))
+
+(deftest swarm-handoff-send-gate-refuses-broken-trees
+  (let [root (tmp-dir)
+        commit (init-repo! root)
+        draft! (fn [name type]
+                 (let [draft (fs/path root "tmp" name)]
+                   (write-file draft
+                               (if (= type "note")
+                                 "type: note\nto: receiver\npriority: 50\nmessage: heads up\n"
+                                 (format "type: git_handoff\nto: receiver\npriority: 50\ntask: task-1\ncommit: %s\n" commit)))
+                   draft))]
+    (setup-project! root)
+    (testing "dirty working tree refuses a git_handoff and preserves the draft"
+      (write-file (fs/path root "stray.txt") "uncommitted\n")
+      (let [draft (draft! "dirty.handoff" "git_handoff")
+            result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"} :ok? false}
+                        (script "swarm_handoff.sh") (str draft))]
+        (is (= 3 (:exit result)))
+        (is (str/includes? (:err result) "HANDOFF REFUSED: working tree is not clean."))
+        (is (str/includes? (:err result) "stray.txt"))
+        (is (fs/exists? draft))))
+    (testing "a note passes the gate even with a dirty tree"
+      (let [draft (draft! "note.handoff" "note")
+            result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"}}
+                        (script "swarm_handoff.sh") (str draft))]
+        (is (str/includes? (:out result) "HANDOFF QUEUED:"))))
+    (fs/delete (fs/path root "stray.txt"))
+    (testing "another role's verify command does not apply to this sender"
+      (write-file (fs/path root ".swarmforge" "verify" "receiver") "exit 7\n")
+      (let [draft (draft! "other-role.handoff" "git_handoff")
+            result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"}}
+                        (script "swarm_handoff.sh") (str draft))]
+        (is (str/includes? (:out result) "HANDOFF QUEUED:"))))
+    (testing "failing role verify command refuses the handoff and preserves the draft"
+      (write-file (fs/path root ".swarmforge" "verify" "sender") "echo compile broke; exit 7\n")
+      (let [draft (draft! "verify-fail.handoff" "git_handoff")
+            result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"} :ok? false}
+                        (script "swarm_handoff.sh") (str draft))]
+        (is (= 3 (:exit result)))
+        (is (str/includes? (:err result) "HANDOFF REFUSED: verification failed:"))
+        (is (str/includes? (:err result) "compile broke"))
+        (is (fs/exists? draft))))
+    (testing "passing role verify command lets the handoff through"
+      (write-file (fs/path root ".swarmforge" "verify" "sender") "exit 0\n")
+      (let [draft (draft! "verify-pass.handoff" "git_handoff")
+            result (run {:dir root :env {"SWARMFORGE_ROLE" "sender"}}
+                        (script "swarm_handoff.sh") (str draft))]
+        (is (str/includes? (:out result) "HANDOFF QUEUED:"))))))
 
 (deftest ready-for-next-task-accepts-and-resumes-single-tasks
   (let [root (tmp-dir)]
