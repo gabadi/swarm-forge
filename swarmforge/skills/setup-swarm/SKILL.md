@@ -117,6 +117,13 @@ echo "<branch-name>" > .swarmforge/default-branch
 ```
 This file lets the specifier reset to origin's default branch without hard-coding the name.
 
+Then, for each role in `swarmforge/swarmforge.conf`, ask the operator for that role's verification command — format check + lint + the fast test suite if affordable, the compile/build step at minimum — and record it:
+```bash
+mkdir -p .swarmforge/verify
+echo "<verification-command>" > .swarmforge/verify/<role>
+```
+Skip any role the operator declines.
+
 ---
 
 ## Step 6 — pi backend settings (skip if no pi role)

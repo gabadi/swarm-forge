@@ -121,6 +121,8 @@ The buckets below are a **disposition tag on a finished record**, not bins you s
 
 A filed issue is a SUPPORTED root-cause record, rewritten to be **self-contained** and **traceable**: a future agent must extract a valid learning from the body *alone*, without reloading any transcript or local file. The record's receipts become the issue's evidence; the record's verdict sets the issue's confidence.
 
+**Exit rule: a filed issue's fix must be a script, gate, or config change.** A learning expressible only as prose telling agents to behave better is not ready to file — park it in the consolidation doc. Each triage re-reads the parked learnings from prior consolidations: file any that can now be mechanized, drop any that did not recur in the new batch. Parked items never survive by default.
+
 **Two hard rules, both learned from real failures:**
 
 1. **No reference to anything local.** Never cite a retro filename, a `~/.claude/worklog/...` path, a consolidation doc, or a session-transcript `.jsonl` path. Those live on one machine and die elsewhere. Cite only repo paths (`swarmforge/...`, `api/src/...`, `AGENTS.md`) and durable handles (commit SHAs, PR/issue numbers).

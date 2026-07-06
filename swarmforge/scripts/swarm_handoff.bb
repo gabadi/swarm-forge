@@ -243,6 +243,24 @@
      :canonical-commit canonical
      :errors (vec (concat base-errors recipient-errors field-errors git-errors note-errors))}))
 
+(defn tail-lines [s n]
+  (->> (str/split-lines s) (take-last n) (str/join "\n")))
+
+(defn run-send-gate! [type sender]
+  (when (= "git_handoff" type)
+    (let [status (command "." "git" "status" "--porcelain")]
+      (when-not (str/blank? (:out status))
+        (exit! 3 (str "HANDOFF REFUSED: working tree is not clean.\n"
+                      (tail-lines (:out status) 20)))))
+    (let [verify-file (fs/path (project-root) ".swarmforge" "verify" sender)]
+      (when (fs/regular-file? verify-file)
+        (let [cmd (str/trim (slurp (str verify-file)))]
+          (when-not (str/blank? cmd)
+            (let [result (sh "sh" "-c" cmd)]
+              (when-not (zero? (:exit result))
+                (exit! 3 (str "HANDOFF REFUSED: verification failed: " cmd "\n"
+                              (tail-lines (str (:out result) (:err result)) 20)))))))))))
+
 (defn next-sequence []
   (let [dir (state-dir)
         seq-file (fs/path dir "sequence")
@@ -273,7 +291,7 @@
 
 (defn body [type sender canonical-commit note-message]
   (case type
-    "git_handoff" (str "Re-read your role and constitution.\n\nRun: git merge " canonical-commit "\nThen do your role-specific work per your role file.")
+    "git_handoff" (str "Re-read your role and constitution.\n\nmerge_and_process " sender " " canonical-commit)
     "note" (str "Re-read your role and constitution.\n\n" note-message)))
 
 (defn write-handoff! [{:keys [headers recipients canonical-commit sender]}]
@@ -337,6 +355,7 @@
         (when (seq all-errors)
           (error-report draft all-errors)
           (System/exit 2))
+        (run-send-gate! (get headers "type") sender)
         (let [outbox-file (write-handoff! {:headers headers
                                            :recipients (:recipients validation)
                                            :canonical-commit (:canonical-commit validation)
